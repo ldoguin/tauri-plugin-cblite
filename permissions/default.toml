@@ -1,0 +1,70 @@
+[[permission]]
+identifier = "allow-open-database"
+description = "Allows opening a database."
+commands.allow = ["open_database"]
+
+[[permission]]
+identifier = "allow-close-database"
+description = "Allows closing the open database."
+commands.allow = ["close_database"]
+
+[[permission]]
+identifier = "allow-get-document"
+description = "Allows reading a document."
+commands.allow = ["get_document"]
+
+[[permission]]
+identifier = "allow-save-document"
+description = "Allows saving a document."
+commands.allow = ["save_document"]
+
+[[permission]]
+identifier = "allow-start-replication"
+description = "Allows starting replication."
+commands.allow = ["start_replication"]
+
+[[permission]]
+identifier = "allow-stop-replication"
+description = "Allows stopping replication."
+commands.allow = ["stop_replication"]
+
+[[permission]]
+identifier = "allow-execute-query"
+description = "Allows executing a database query."
+commands.allow = ["execute_query"]
+
+[[permission]]
+identifier = "allow-save-blob"
+description = "Allows saving a blob to the database."
+commands.allow = ["save_blob"]
+
+[[permission]]
+identifier = "allow-get-blob-data"
+description = "Allows retrieving blob data from the database."
+commands.allow = ["get_blob_data"]
+
+[[permission]]
+identifier = "allow-register-listener"
+description = "Allows registering Channel-based event listeners (mobile)."
+commands.allow = ["registerListener"]
+
+[[permission]]
+identifier = "allow-remove-listener"
+description = "Allows removing Channel-based event listeners (mobile)."
+commands.allow = ["removeListener"]
+
+[default]
+description = "Default permission set — allows all plugin commands."
+permissions = [
+    "allow-open-database",
+    "allow-close-database",
+    "allow-get-document",
+    "allow-save-document",
+    "allow-start-replication",
+    "allow-stop-replication",
+    "allow-execute-query",
+    "allow-save-blob",
+    "allow-get-blob-data",
+    "allow-register-listener",
+    "allow-remove-listener",
+]

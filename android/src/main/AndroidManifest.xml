@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Internet is required for the replicator to connect to Sync Gateway -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Allow ws:// / http:// connections to Sync Gateway during development.
+         For production, remove this and use wss:// / https:// only. -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>
