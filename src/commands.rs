@@ -205,6 +205,9 @@ pub async fn start_replication<R: Runtime>(
     cookie_name: Option<String>,
     field_encryption_password: Option<String>,
     field_encryption_salt: Option<String>,
+    /// Additional collections to replicate in the same replicator.
+    /// Allows multi-collection sync without multiple replicator instances.
+    extra_collections: Option<Vec<String>>,
 ) -> Result<(), String> {
     use couchbase_lite::{
         Authenticator, Endpoint, MutableArray, ReplicationCollection,
@@ -272,18 +275,43 @@ pub async fn start_replication<R: Runtime>(
     // GLOBAL channels ARE NOT IMPLEMENTED. ONLY PER-COLLECTION channels work.
     // This has been verified in the replicator binding source code at line 771.
 
-    // Replicate the requested collection only
-    // No hardcoded collection names in this plugin
-    let mut collections = Vec::new();
+    // Build the list of collections to replicate.
+    // `collection` is always included; `extra_collections` adds more in one replicator.
+    let mut all_specs: Vec<String> = vec![collection.clone()];
+    if let Some(extras) = extra_collections {
+        for extra in extras {
+            if !all_specs.contains(&extra) {
+                all_specs.push(extra);
+            }
+        }
+    }
 
+    let mut collections = Vec::new();
+    // The primary collection was already resolved above as `coll`; add it first.
     collections.push(ReplicationCollection {
         collection: coll,
         conflict_resolver: None,
         push_filter: None,
         pull_filter: None,
-        channels: MutableArray::default(), // empty = pull from all user-accessible channels
+        channels: MutableArray::default(),
         document_ids: MutableArray::default(),
     });
+    // Add any extra collections.
+    for spec in all_specs.iter().skip(1) {
+        let (scope_name, coll_name) = parse_collection(spec);
+        let extra_coll = plugin_state
+            .db
+            .create_collection(coll_name.to_string(), scope_name.to_string())
+            .map_err(|e| e.to_string())?;
+        collections.push(ReplicationCollection {
+            collection: extra_coll,
+            conflict_resolver: None,
+            push_filter: None,
+            pull_filter: None,
+            channels: MutableArray::default(),
+            document_ids: MutableArray::default(),
+        });
+    }
     
     // Required for Sync Gateway: accept cookies from parent domain
     let mut headers = std::collections::HashMap::new();

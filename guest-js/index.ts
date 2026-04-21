@@ -60,7 +60,8 @@ export function startReplication(
   collection: string,
   direction: "push" | "pull" | "both",
   auth?: { username: string; password: string } | { sessionId: string; cookieName?: string },
-  fieldEncryption?: { password: string; salt: string }
+  fieldEncryption?: { password: string; salt: string },
+  extraCollections?: string[]
 ): Promise<void> {
   const isSession = auth && "sessionId" in auth;
   return invoke("plugin:cblite|start_replication", {
@@ -73,6 +74,7 @@ export function startReplication(
     cookieName: isSession ? ((auth as { cookieName?: string }).cookieName ?? null) : null,
     fieldEncryptionPassword: fieldEncryption?.password ?? null,
     fieldEncryptionSalt: fieldEncryption?.salt ?? null,
+    extraCollections: extraCollections ?? null,
   });
 }
 
