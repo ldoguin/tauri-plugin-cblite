@@ -156,6 +156,26 @@ pub async fn execute_query<R: Runtime>(
 }
 
 #[tauri::command]
+pub async fn create_fts_index<R: Runtime>(
+    _app: AppHandle<R>,
+    mobile: MobileState<'_, R>,
+    collection: String,
+    index_name: String,
+    field: String,
+) -> Result<(), String> {
+    mobile
+        .run::<_, ()>(
+            "createFtsIndex",
+            &serde_json::json!({
+                "collection": collection,
+                "indexName": index_name,
+                "field": field,
+            }),
+        )
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn save_blob<R: Runtime>(
     _app: AppHandle<R>,
     mobile: MobileState<'_, R>,

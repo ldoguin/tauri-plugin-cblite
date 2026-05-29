@@ -18,6 +18,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            consumerProguardFiles("proguard-rules.pro")
         }
     }
 
@@ -33,5 +34,5 @@ android {
 
 dependencies {
     implementation(project(":tauri-android"))
-    implementation("com.couchbase.lite:couchbase-lite-android-ktx:3.2.1")
+    implementation("com.couchbase.lite:couchbase-lite-android-ktx:4.0.3")
 }

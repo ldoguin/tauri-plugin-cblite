@@ -295,10 +295,10 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "Default permission set — allows all plugin commands.\n#### This default permission set includes:\n\n- `allow-open-database`\n- `allow-close-database`\n- `allow-get-document`\n- `allow-save-document`\n- `allow-start-replication`\n- `allow-stop-replication`\n- `allow-execute-query`\n- `allow-save-blob`\n- `allow-get-blob-data`\n- `allow-register-listener`\n- `allow-remove-listener`",
+          "description": "Default permission set — allows all plugin commands.\n#### This default permission set includes:\n\n- `allow-open-database`\n- `allow-close-database`\n- `allow-get-document`\n- `allow-save-document`\n- `allow-start-replication`\n- `allow-stop-replication`\n- `allow-execute-query`\n- `allow-create-fts-index`\n- `allow-save-blob`\n- `allow-get-blob-data`\n- `allow-register-listener`\n- `allow-remove-listener`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permission set — allows all plugin commands.\n#### This default permission set includes:\n\n- `allow-open-database`\n- `allow-close-database`\n- `allow-get-document`\n- `allow-save-document`\n- `allow-start-replication`\n- `allow-stop-replication`\n- `allow-execute-query`\n- `allow-save-blob`\n- `allow-get-blob-data`\n- `allow-register-listener`\n- `allow-remove-listener`"
+          "markdownDescription": "Default permission set — allows all plugin commands.\n#### This default permission set includes:\n\n- `allow-open-database`\n- `allow-close-database`\n- `allow-get-document`\n- `allow-save-document`\n- `allow-start-replication`\n- `allow-stop-replication`\n- `allow-execute-query`\n- `allow-create-fts-index`\n- `allow-save-blob`\n- `allow-get-blob-data`\n- `allow-register-listener`\n- `allow-remove-listener`"
         },
         {
           "description": "Allows opening a database.",
@@ -341,6 +341,12 @@
           "type": "string",
           "const": "allow-execute-query",
           "markdownDescription": "Allows executing a database query."
+        },
+        {
+          "description": "Allows creating a full-text search index on a collection.",
+          "type": "string",
+          "const": "allow-create-fts-index",
+          "markdownDescription": "Allows creating a full-text search index on a collection."
         },
         {
           "description": "Allows saving a blob to the database.",

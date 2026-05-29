@@ -44,8 +44,9 @@ pub async fn open_database<R: Runtime>(
             ("_default".to_string(), coll_spec)
         };
         let mut coll = db
-            .create_collection(coll_name, scope_name)
+            .create_collection(coll_name.clone(), scope_name)
             .map_err(|e| e.to_string())?;
+
         let app_handle = app.clone();
         let listener = coll.add_listener(Box::new(move |_coll, doc_ids| {
             let _ = app_handle.emit(events::COLLECTION_CHANGED, doc_ids);
@@ -61,6 +62,46 @@ pub async fn open_database<R: Runtime>(
         replicator: None,
     });
     Ok(())
+}
+
+/// Create (or idempotently ensure) a full-text search index on a collection field.
+///
+/// - `collection`: e.g. `"_default.knowledge"` or `"knowledge"`
+/// - `index_name`: arbitrary name, e.g. `"knowledgeFts"`
+/// - `field`:      document field to index, e.g. `"text"`
+///
+/// Safe to call repeatedly; CBL is a no-op if the identical index already exists.
+#[tauri::command]
+pub async fn create_fts_index<R: Runtime>(
+    _app: AppHandle<R>,
+    state: State<'_, PluginStateArc>,
+    collection: String,
+    index_name: String,
+    field: String,
+) -> Result<(), String> {
+    use couchbase_lite::index::FullTextIndexConfiguration;
+
+    let guard = state.lock().map_err(|e| e.to_string())?;
+    let plugin_state = guard.as_ref().ok_or("Database not open")?;
+
+    let (scope_name, coll_name) = parse_collection(&collection);
+    let mut coll = plugin_state
+        .db
+        .create_collection(coll_name.to_string(), scope_name.to_string())
+        .map_err(|e| e.to_string())?;
+
+    let cfg = FullTextIndexConfiguration::new(
+        couchbase_lite::QueryLanguage::N1QL,
+        &field,
+        false,
+        None,
+        None,
+    )
+    .map_err(|e| e.to_string())?;
+
+    coll.create_full_text_index(&index_name, &cfg)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -117,6 +158,16 @@ pub async fn save_document<R: Runtime>(
         .db
         .create_collection(coll_name.to_string(), scope_name.to_string())
         .map_err(|e| e.to_string())?;
+
+    // `{ _deleted: true }` or `{ __deleted: true }` are soft-delete sentinels: purge the document.
+    // `__deleted` is the preferred non-CBL-reserved tombstone used by JS deleteKnowledgeChunk.
+    let is_deleted = body.get("_deleted").and_then(serde_json::Value::as_bool).unwrap_or(false)
+        || body.get("__deleted").and_then(serde_json::Value::as_bool).unwrap_or(false);
+    if is_deleted {
+        // Ignore errors (e.g. NotFound) — if the doc doesn't exist, the desired state is achieved.
+        let _ = coll.purge_document_by_id(&doc_id);
+        return Ok(());
+    }
 
     let json = serde_json::to_string(&body).map_err(|e| e.to_string())?;
     let mut doc = Document::new_with_id(&doc_id);

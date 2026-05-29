@@ -11,6 +11,7 @@ Default permission set — allows all plugin commands.
 - `allow-start-replication`
 - `allow-stop-replication`
 - `allow-execute-query`
+- `allow-create-fts-index`
 - `allow-save-blob`
 - `allow-get-blob-data`
 - `allow-register-listener`
@@ -112,6 +113,19 @@ Allows stopping replication.
 <td>
 
 Allows executing a database query.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`cblite:allow-create-fts-index`
+
+</td>
+<td>
+
+Allows creating a full-text search index on a collection.
 
 </td>
 </tr>

@@ -59,6 +59,10 @@ export function executeQuery(language, queryStr, parameters) {
         parameters: parameters ?? null,
     });
 }
+/** Create (or idempotently ensure) a full-text search index on a collection field. */
+export function createFtsIndex(collection, indexName, field) {
+    return invoke("plugin:cblite|create_fts_index", { collection, indexName, field });
+}
 /**
  * Register a predictive model for use in PREDICTION() queries.
  */

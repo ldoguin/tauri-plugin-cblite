@@ -22,6 +22,8 @@ import com.couchbase.lite.ReplicatorActivityLevel
 import com.couchbase.lite.ReplicatorConfiguration
 import com.couchbase.lite.ReplicatorType
 import com.couchbase.lite.CollectionConfiguration
+import android.util.Log
+import com.couchbase.lite.FullTextIndexConfiguration
 import com.couchbase.lite.SessionAuthenticator
 import com.couchbase.lite.URLEndpoint
 import java.net.URI
@@ -81,9 +83,62 @@ class CblitePlugin(private val activity: Activity) : Plugin(activity) {
                 collectionListenerTokens.add(token)
             }
 
+            // Auto-import config.json from external storage (one-shot, deleted after import).
+            // This runs here because Kotlin has reliable access to external storage while
+            // Rust std::fs cannot access /sdcard paths on Android.
+            importConfigIfPresent(db)
+
             invoke.resolve()
+        } catch (e: Throwable) {
+            invoke.reject(e.message ?: e.toString(), null as JSObject?)
+        }
+    }
+
+    /** Reads config.json from external files dir, saves it to CBL, then deletes the file. */
+    private fun importConfigIfPresent(db: Database) {
+        try {
+            val extDir = activity.getExternalFilesDir(null) ?: return
+            val file = java.io.File(extDir, "config.json")
+            if (!file.exists()) return
+
+            val json = file.readText()
+            // Parse and save to _default.config/app-config
+            val parsed = org.json.JSONObject(json)
+            val coll = db.createCollection("config", "_default")
+            val doc = MutableDocument("app-config")
+            doc.setJSON(parsed.toString())
+            coll.save(doc)
+            file.delete()
         } catch (e: Exception) {
-            invoke.reject(e.message ?: "Failed to open database", null as JSObject?)
+            android.util.Log.e("CblitePlugin", "importConfigIfPresent error: ${e.message}", e)
+        }
+    }
+
+    // ── create_fts_index ──────────────────────────────────────────────────────
+
+    /** Creates (or idempotently ensures) an FTS index on a collection field. */
+    @Command
+    fun createFtsIndex(invoke: Invoke) {
+        val args = invoke.getArgs()
+        val collectionSpec = args.optString("collection").takeIf { it.isNotEmpty() }
+            ?: return invoke.reject("collection is required", null as JSObject?)
+        val indexName = args.optString("indexName").takeIf { it.isNotEmpty() }
+            ?: return invoke.reject("indexName is required", null as JSObject?)
+        val field = args.optString("field").takeIf { it.isNotEmpty() }
+            ?: return invoke.reject("field is required", null as JSObject?)
+        try {
+            val db = database ?: return invoke.reject("Database not open", null as JSObject?)
+            val dotIdx = collectionSpec.indexOf('.')
+            val (scope, coll) = if (dotIdx >= 0) {
+                collectionSpec.substring(0, dotIdx) to collectionSpec.substring(dotIdx + 1)
+            } else {
+                "_default" to collectionSpec
+            }
+            val collection = db.createCollection(coll, scope)
+            collection.createIndex(indexName, FullTextIndexConfiguration(field))
+            invoke.resolve()
+        } catch (e: Throwable) {
+            invoke.reject(e.message ?: e.toString(), null as JSObject?)
         }
     }
 
@@ -94,8 +149,8 @@ class CblitePlugin(private val activity: Activity) : Plugin(activity) {
         try {
             closeCurrentDatabase()
             invoke.resolve()
-        } catch (e: Exception) {
-            invoke.reject(e.message ?: "Failed to close database", null as JSObject?)
+        } catch (e: Throwable) {
+            invoke.reject(e.message ?: e.toString(), null as JSObject?)
         }
     }
 
@@ -130,8 +185,8 @@ class CblitePlugin(private val activity: Activity) : Plugin(activity) {
                 val json = doc.toJSON() ?: "{}"
                 invoke.resolve(JSObject(json))
             }
-        } catch (e: Exception) {
-            invoke.reject(e.message ?: "Failed to get document", null as JSObject?)
+        } catch (e: Throwable) {
+            invoke.reject(e.message ?: e.toString(), null as JSObject?)
         }
     }
 
@@ -150,12 +205,21 @@ class CblitePlugin(private val activity: Activity) : Plugin(activity) {
         try {
             val db = database ?: return invoke.reject("Database not open", null as JSObject?)
             val coll = resolveCollection(db, collection)
+            // `{ _deleted: true }` or `{ __deleted: true }` are soft-delete sentinels — purge the document.
+            // `_deleted` is a CBL reserved property and cannot be stored in a document body.
+            // `__deleted` is the preferred non-reserved tombstone used by JS deleteKnowledgeChunk.
+            if (body.optBoolean("_deleted", false) || body.optBoolean("__deleted", false)) {
+                // Ignore NotFound — if the doc doesn't exist, the desired state is achieved.
+                try { coll.purge(docId) } catch (_: Exception) {}
+                invoke.resolve()
+                return
+            }
             val doc = MutableDocument(docId as String)
             doc.setJSON(body.toString())
             coll.save(doc)
             invoke.resolve()
-        } catch (e: Exception) {
-            invoke.reject(e.message ?: "Failed to save document", null as JSObject?)
+        } catch (e: Throwable) {
+            invoke.reject(e.message ?: e.toString(), null as JSObject?)
         }
     }
 
@@ -205,8 +269,8 @@ class CblitePlugin(private val activity: Activity) : Plugin(activity) {
             val response = JSObject()
             response.put("rows", rows)
             invoke.resolve(response)
-        } catch (e: Exception) {
-            invoke.reject(e.message ?: "Failed to execute query", null as JSObject?)
+        } catch (e: Throwable) {
+            invoke.reject(e.message ?: e.toString(), null as JSObject?)
         }
     }
 
@@ -239,29 +303,29 @@ class CblitePlugin(private val activity: Activity) : Plugin(activity) {
             replicator = null
 
             val endpoint = URLEndpoint(URI(url))
-            val config = ReplicatorConfiguration(endpoint).apply {
-                type = when (direction) {
+            // CBL 4.0: CollectionConfiguration takes the Collection; constructor takes list + endpoint.
+            // Each collection gets its own CollectionConfiguration — do NOT share instances.
+            // channels = null (default) means "all channels the user has access to" per SG.
+            val coll = resolveCollection(db, collection)
+            val config = ReplicatorConfiguration(listOf(CollectionConfiguration(coll)), endpoint).apply {
+                setType(when (direction) {
                     "push" -> ReplicatorType.PUSH
                     "pull" -> ReplicatorType.PULL
                     else   -> ReplicatorType.PUSH_AND_PULL
-                }
-                authenticator = when {
+                })
+                setAuthenticator(when {
                     !sessionId.isNullOrEmpty() ->
                         SessionAuthenticator(sessionId, cookieName ?: "SyncGatewaySession")
                     !username.isNullOrEmpty() && !password.isNullOrEmpty() ->
                         BasicAuthenticator(username, password.toCharArray())
                     else -> null
-                }
-                isContinuous = true
+                })
+                setContinuous(true)
                 // Enable heartbeat to keep connection alive
                 heartbeat = 30
                 // ✅ CRITICAL: Disable auto purge to allow pulling documents created by OTHER DEVICES
-                isAutoPurgeEnabled = false
+                setAutoPurgeEnabled(false)
             }
-            // Each collection gets its own CollectionConfiguration — do NOT share instances.
-            // channels = null (default) means "all channels the user has access to" per SG.
-            val coll = resolveCollection(db, collection)
-            config.addCollection(coll, CollectionConfiguration())
 
             // Assign FIRST to prevent GC collection while starting - critical on Android!
             replicator = Replicator(config)
@@ -285,8 +349,8 @@ class CblitePlugin(private val activity: Activity) : Plugin(activity) {
             replicator!!.start()
 
             invoke.resolve()
-        } catch (e: Exception) {
-            invoke.reject(e.message ?: "Failed to start replication", null as JSObject?)
+        } catch (e: Throwable) {
+            invoke.reject(e.message ?: e.toString(), null as JSObject?)
         }
     }
 
@@ -321,8 +385,8 @@ class CblitePlugin(private val activity: Activity) : Plugin(activity) {
             val result = JSObject()
             result.put("value", digest as String)
             invoke.resolve(result)
-        } catch (e: Exception) {
-            invoke.reject(e.message ?: "Failed to save blob", null as JSObject?)
+        } catch (e: Throwable) {
+            invoke.reject(e.message ?: e.toString(), null as JSObject?)
         }
     }
 
@@ -346,8 +410,8 @@ class CblitePlugin(private val activity: Activity) : Plugin(activity) {
             val result = JSObject()
             result.put("value", b64 as String)
             invoke.resolve(result)
-        } catch (e: Exception) {
-            invoke.reject(e.message ?: "Failed to get blob data", null as JSObject?)
+        } catch (e: Throwable) {
+            invoke.reject(e.message ?: e.toString(), null as JSObject?)
         }
     }
 
