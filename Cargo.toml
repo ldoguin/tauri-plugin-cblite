@@ -16,7 +16,10 @@ enterprise = ["native-cbl", "couchbase_lite/enterprise", "dep:tract-onnx", "dep:
 
 [dependencies]
 # Optional: only present on desktop builds (Android uses the Kotlin CBL SDK instead).
-couchbase_lite = { git = "https://github.com/ldoguin/couchbase-lite-rust", optional = true, rev = "6a8c7c5", default-features = false }
+# Path dependency (was a git source) so iOS/Android resolution never touches the
+# network — the upstream git repo currently fails to fetch. This crate is only
+# compiled on desktop (native-cbl); on mobile it is gated out entirely.
+couchbase_lite = { path = "../couchbase-lite-rust", optional = true, default-features = false }
 tauri = { version = "2", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

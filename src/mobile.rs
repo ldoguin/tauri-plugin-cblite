@@ -12,9 +12,8 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
 ) -> Result<MobileCblite<R>, Box<dyn std::error::Error>> {
     #[cfg(target_os = "android")]
     let handle = api.register_android_plugin("com.plugin.cblite", "CblitePlugin")?;
-    #[cfg(not(target_os = "android"))]
-    // iOS is not yet implemented; the handle is provided by Tauri's no-op iOS shim.
-    let handle = api.register_ios_plugin(noop_ios_init)?;
+    #[cfg(target_os = "ios")]
+    let handle = api.register_ios_plugin(init_plugin_cblite)?;
 
     Ok(MobileCblite(handle))
 }
@@ -33,7 +32,7 @@ impl<R: Runtime> MobileCblite<R> {
     }
 }
 
-// ── iOS stub ─────────────────────────────────────────────────────────────────
+// ── iOS Swift package entry-point (provided by ios/Sources/CblitePlugin.swift) ──
 
-#[cfg(not(target_os = "android"))]
-fn noop_ios_init(_webview: &tauri::WebviewWindow<impl Runtime>) {}
+#[cfg(target_os = "ios")]
+tauri::ios_plugin_binding!(init_plugin_cblite);

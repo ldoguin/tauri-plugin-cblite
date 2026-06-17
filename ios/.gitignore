@@ -1,0 +1,4 @@
+.build
+.tauri
+Package.resolved
+.DS_Store
