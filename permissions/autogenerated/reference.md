@@ -12,8 +12,10 @@ Default permission set — allows all plugin commands.
 - `allow-stop-replication`
 - `allow-execute-query`
 - `allow-create-fts-index`
+- `allow-list-indexes`
 - `allow-save-blob`
 - `allow-get-blob-data`
+- `allow-write-export-file`
 - `allow-register-listener`
 - `allow-remove-listener`
 
@@ -133,6 +135,19 @@ Allows creating a full-text search index on a collection.
 <tr>
 <td>
 
+`cblite:allow-list-indexes`
+
+</td>
+<td>
+
+Allows listing the indexes on a collection.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `cblite:allow-save-blob`
 
 </td>
@@ -152,6 +167,19 @@ Allows saving a blob to the database.
 <td>
 
 Allows retrieving blob data from the database.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`cblite:allow-write-export-file`
+
+</td>
+<td>
+
+Allows writing an export file to the user-accessible storage.
 
 </td>
 </tr>

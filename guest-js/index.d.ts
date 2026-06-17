@@ -18,6 +18,8 @@ export declare function stopReplication(): Promise<void>;
 export declare function executeQuery(language: "N1QL" | "JSON", queryStr: string, parameters?: Record<string, unknown>): Promise<unknown[]>;
 /** Create (or idempotently ensure) a full-text search index on a collection field. */
 export declare function createFtsIndex(collection: string, indexName: string, field: string): Promise<void>;
+/** List the names of all indexes on a collection. */
+export declare function listIndexes(collection: string): Promise<string[]>;
 /**
  * Register a predictive model for use in PREDICTION() queries.
  */
@@ -37,5 +39,11 @@ export declare function saveBlob(dataB64: string, contentType: string): Promise<
  * Retrieve blob bytes by digest. Returns base64-encoded content.
  */
 export declare function getBlobData(digest: string): Promise<string>;
+/**
+ * Write a text file to user-accessible storage (~/Downloads or $HOME on
+ * desktop, the app's external files dir on Android). Returns the absolute
+ * path of the written file.
+ */
+export declare function writeExportFile(filename: string, data: string): Promise<string>;
 export declare function onCollectionChanged(handler: (docIds: string[]) => void): Promise<() => void>;
 export declare function onReplicationStatus(handler: (activity: string, error?: string) => void): Promise<() => void>;

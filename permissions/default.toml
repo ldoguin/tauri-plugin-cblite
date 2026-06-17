@@ -39,6 +39,11 @@ description = "Allows creating a full-text search index on a collection."
 commands.allow = ["create_fts_index"]
 
 [[permission]]
+identifier = "allow-list-indexes"
+description = "Allows listing the indexes on a collection."
+commands.allow = ["list_indexes"]
+
+[[permission]]
 identifier = "allow-save-blob"
 description = "Allows saving a blob to the database."
 commands.allow = ["save_blob"]
@@ -47,6 +52,11 @@ commands.allow = ["save_blob"]
 identifier = "allow-get-blob-data"
 description = "Allows retrieving blob data from the database."
 commands.allow = ["get_blob_data"]
+
+[[permission]]
+identifier = "allow-write-export-file"
+description = "Allows writing an export file to the user-accessible storage."
+commands.allow = ["write_export_file"]
 
 [[permission]]
 identifier = "allow-register-listener"
@@ -69,8 +79,10 @@ permissions = [
     "allow-stop-replication",
     "allow-execute-query",
     "allow-create-fts-index",
+    "allow-list-indexes",
     "allow-save-blob",
     "allow-get-blob-data",
+    "allow-write-export-file",
     "allow-register-listener",
     "allow-remove-listener",
 ]

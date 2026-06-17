@@ -124,8 +124,9 @@ class CblitePlugin(private val activity: Activity) : Plugin(activity) {
             ?: return invoke.reject("collection is required", null as JSObject?)
         val indexName = args.optString("indexName").takeIf { it.isNotEmpty() }
             ?: return invoke.reject("indexName is required", null as JSObject?)
-        val field = args.optString("field").takeIf { it.isNotEmpty() }
+        val fieldArg = args.optString("field").takeIf { it.isNotEmpty() }
             ?: return invoke.reject("field is required", null as JSObject?)
+        val fields = fieldArg.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
         try {
             val db = database ?: return invoke.reject("Database not open", null as JSObject?)
             val dotIdx = collectionSpec.indexOf('.')
@@ -135,8 +136,63 @@ class CblitePlugin(private val activity: Activity) : Plugin(activity) {
                 "_default" to collectionSpec
             }
             val collection = db.createCollection(coll, scope)
-            collection.createIndex(indexName, FullTextIndexConfiguration(field))
+            android.util.Log.d("CblitePlugin", "createFtsIndex: $indexName on $scope.$coll fields=$fields")
+            collection.createIndex(indexName, FullTextIndexConfiguration(*fields.toTypedArray()))
+            val after: Set<String> = collection.indexes
+            android.util.Log.d("CblitePlugin", "createFtsIndex done, indexes now: $after")
             invoke.resolve()
+        } catch (e: Throwable) {
+            android.util.Log.e("CblitePlugin", "createFtsIndex FAILED: ${e.message}", e)
+            invoke.reject(e.message ?: e.toString(), null as JSObject?)
+        }
+    }
+
+    /** Returns the names of all indexes on a collection (used to verify FTS creation). */
+    @Command
+    fun listIndexes(invoke: Invoke) {
+        val args = invoke.getArgs()
+        val collectionSpec = args.optString("collection").takeIf { it.isNotEmpty() }
+            ?: return invoke.reject("collection is required", null as JSObject?)
+        try {
+            val db = database ?: return invoke.reject("Database not open", null as JSObject?)
+            val dotIdx = collectionSpec.indexOf('.')
+            val (scope, coll) = if (dotIdx >= 0) {
+                collectionSpec.substring(0, dotIdx) to collectionSpec.substring(dotIdx + 1)
+            } else {
+                "_default" to collectionSpec
+            }
+            val collection = db.createCollection(coll, scope)
+            val indexNames: Set<String> = collection.indexes
+            android.util.Log.d("CblitePlugin", "listIndexes $scope.$coll: $indexNames")
+            val arr = JSArray()
+            for (n in indexNames) { arr.put(n) }
+            val result = JSObject()
+            result.put("indexes", arr)
+            invoke.resolve(result)
+        } catch (e: Throwable) {
+            invoke.reject(e.message ?: e.toString(), null as JSObject?)
+        }
+    }
+
+    // ── write_export_file ─────────────────────────────────────────────────────
+
+    /** Writes a text file to the app's external files dir (ADB-accessible). */
+    @Command
+    fun writeExportFile(invoke: Invoke) {
+        val args = invoke.getArgs()
+        val filename = args.optString("filename").takeIf { it.isNotEmpty() }
+            ?: return invoke.reject("filename is required", null as JSObject?)
+        val data = args.optString("data").takeIf { it.isNotEmpty() }
+            ?: return invoke.reject("data is required", null as JSObject?)
+        try {
+            val extDir = activity?.getExternalFilesDir(null)
+                ?: return invoke.reject("External storage unavailable", null as JSObject?)
+            val file = java.io.File(extDir.absolutePath, filename)
+            file.parentFile?.mkdirs()
+            file.writeText(data)
+            val result = JSObject()
+            result.put("value", file.absolutePath)
+            invoke.resolve(result)
         } catch (e: Throwable) {
             invoke.reject(e.message ?: e.toString(), null as JSObject?)
         }

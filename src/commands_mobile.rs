@@ -176,6 +176,20 @@ pub async fn create_fts_index<R: Runtime>(
 }
 
 #[tauri::command]
+pub async fn list_indexes<R: Runtime>(
+    _app: AppHandle<R>,
+    mobile: MobileState<'_, R>,
+    collection: String,
+) -> Result<Vec<String>, String> {
+    #[derive(serde::Deserialize)]
+    struct Payload { indexes: Vec<String> }
+    let p: Payload = mobile
+        .run("listIndexes", &serde_json::json!({ "collection": collection }))
+        .map_err(|e| e.to_string())?;
+    Ok(p.indexes)
+}
+
+#[tauri::command]
 pub async fn save_blob<R: Runtime>(
     _app: AppHandle<R>,
     mobile: MobileState<'_, R>,
@@ -222,4 +236,20 @@ pub async fn unregister_predictive_model<R: Runtime>(
     _name: String,
 ) -> Result<(), String> {
     Err("Predictive models are not supported on Android".into())
+}
+
+#[tauri::command]
+pub async fn write_export_file<R: Runtime>(
+    _app: AppHandle<R>,
+    mobile: MobileState<'_, R>,
+    filename: String,
+    data: String,
+) -> Result<String, String> {
+    let p: ValuePayload = mobile
+        .run(
+            "writeExportFile",
+            &serde_json::json!({ "filename": filename, "data": data }),
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(p.value)
 }

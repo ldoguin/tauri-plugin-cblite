@@ -63,10 +63,12 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                 commands::stop_replication,
                 commands::execute_query,
                 commands::create_fts_index,
+                commands::list_indexes,
                 commands::register_predictive_model,
                 commands::unregister_predictive_model,
                 commands::save_blob,
                 commands::get_blob_data,
+                commands::write_export_file,
             ])
             .setup(|app, _api| {
                 let state: PluginStateArc = Arc::new(Mutex::new(None));
@@ -91,10 +93,12 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                 commands_mobile::stop_replication,
                 commands_mobile::execute_query,
                 commands_mobile::create_fts_index,
+                commands_mobile::list_indexes,
                 commands_mobile::register_predictive_model,
                 commands_mobile::unregister_predictive_model,
                 commands_mobile::save_blob,
                 commands_mobile::get_blob_data,
+                commands_mobile::write_export_file,
             ])
             .setup(|app, api| {
                 let m = mobile::init(app, api)?;

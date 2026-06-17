@@ -106,6 +106,10 @@ export function createFtsIndex(
   return invoke("plugin:cblite|create_fts_index", { collection, indexName, field });
 }
 
+export function listIndexes(collection: string): Promise<string[]> {
+  return invoke("plugin:cblite|list_indexes", { collection });
+}
+
 /**
  * Register a predictive model for use in PREDICTION() queries.
  */
@@ -143,6 +147,15 @@ export function saveBlob(dataB64: string, contentType: string): Promise<string> 
  */
 export function getBlobData(digest: string): Promise<string> {
   return invoke("plugin:cblite|get_blob_data", { digest });
+}
+
+/**
+ * Write a text file to user-accessible storage (~/Downloads or $HOME on
+ * desktop, the app's external files dir on Android). Returns the absolute
+ * path of the written file.
+ */
+export function writeExportFile(filename: string, data: string): Promise<string> {
+  return invoke("plugin:cblite|write_export_file", { filename, data });
 }
 
 export function onCollectionChanged(

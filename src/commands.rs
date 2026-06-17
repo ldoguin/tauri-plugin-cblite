@@ -90,9 +90,11 @@ pub async fn create_fts_index<R: Runtime>(
         .create_collection(coll_name.to_string(), scope_name.to_string())
         .map_err(|e| e.to_string())?;
 
+    // CBL N1QL FTS expects comma-delimited expressions; the JS API passes space-separated field names.
+    let expressions = field.split_whitespace().collect::<Vec<_>>().join(", ");
     let cfg = FullTextIndexConfiguration::new(
         couchbase_lite::QueryLanguage::N1QL,
-        &field,
+        &expressions,
         false,
         None,
         None,
@@ -102,6 +104,30 @@ pub async fn create_fts_index<R: Runtime>(
     coll.create_full_text_index(&index_name, &cfg)
         .map(|_| ())
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn list_indexes<R: Runtime>(
+    _app: AppHandle<R>,
+    state: State<'_, PluginStateArc>,
+    collection: String,
+) -> Result<Vec<String>, String> {
+    let guard = state.lock().map_err(|e| e.to_string())?;
+    let plugin_state = guard.as_ref().ok_or("Database not open")?;
+    let (scope_name, coll_name) = parse_collection(&collection);
+    let coll = plugin_state
+        .db
+        .create_collection(coll_name.to_string(), scope_name.to_string())
+        .map_err(|e| e.to_string())?;
+    let names_array = coll.get_index_names().map_err(|e| e.to_string())?;
+    let mut names = Vec::new();
+    for i in 0..names_array.count() {
+        let v = names_array.get(i);
+        if let Some(s) = v.as_string() {
+            names.push(s.to_string());
+        }
+    }
+    Ok(names)
 }
 
 #[tauri::command]
@@ -205,8 +231,8 @@ pub async fn start_replication<R: Runtime>(
     cookie_name: Option<String>,
     field_encryption_password: Option<String>,
     field_encryption_salt: Option<String>,
-    /// Additional collections to replicate in the same replicator.
-    /// Allows multi-collection sync without multiple replicator instances.
+    // Additional collections to replicate in the same replicator.
+    // Allows multi-collection sync without multiple replicator instances.
     extra_collections: Option<Vec<String>>,
 ) -> Result<(), String> {
     use couchbase_lite::{
@@ -655,6 +681,26 @@ pub async fn register_predictive_model<R: Runtime>(
 }
 
 /// Unregister a previously registered predictive model.
+#[tauri::command]
+pub async fn write_export_file<R: Runtime>(
+    _app: AppHandle<R>,
+    filename: String,
+    data: String,
+) -> Result<String, String> {
+    // Resolve ~/Downloads, falling back to $HOME
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| ".".to_string());
+    let dir = {
+        let downloads = std::path::PathBuf::from(&home).join("Downloads");
+        if downloads.is_dir() { downloads } else { std::path::PathBuf::from(&home) }
+    };
+    std::fs::create_dir_all(&dir).map_err(|e| format!("mkdir {}: {e}", dir.display()))?;
+    let dest = dir.join(&filename);
+    std::fs::write(&dest, data.as_bytes()).map_err(|e| format!("write {}: {e}", dest.display()))?;
+    Ok(dest.to_string_lossy().into_owned())
+}
+
 #[tauri::command]
 pub async fn unregister_predictive_model<R: Runtime>(
     _app: AppHandle<R>,
