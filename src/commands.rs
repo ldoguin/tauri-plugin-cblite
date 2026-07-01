@@ -19,6 +19,15 @@ pub async fn open_database<R: Runtime>(
     use couchbase_lite::{EncryptionAlgorithm, EncryptionKey};
     use std::path::Path;
 
+    // Acquire the lock before opening so concurrent calls (e.g. React StrictMode
+    // double-mount in dev) cannot race on WAL/SHM file initialisation and trigger
+    // SQLITE_IOERR_SHMSIZE. All operations below are synchronous (no .await), so
+    // holding a std::sync::MutexGuard here is safe.
+    let mut guard = state.lock().map_err(|e| e.to_string())?;
+    if guard.is_some() {
+        return Ok(());
+    }
+
     let dir = Path::new(&path);
 
     #[cfg(feature = "enterprise")]
@@ -54,7 +63,6 @@ pub async fn open_database<R: Runtime>(
         coll_listeners.push(listener);
     }
 
-    let mut guard = state.lock().map_err(|e| e.to_string())?;
     *guard = Some(PluginState {
         db,
         listeners: vec![],
@@ -78,6 +86,7 @@ pub async fn create_fts_index<R: Runtime>(
     collection: String,
     index_name: String,
     field: String,
+    language: Option<String>,
 ) -> Result<(), String> {
     use couchbase_lite::index::FullTextIndexConfiguration;
 
@@ -92,11 +101,12 @@ pub async fn create_fts_index<R: Runtime>(
 
     // CBL N1QL FTS expects comma-delimited expressions; the JS API passes space-separated field names.
     let expressions = field.split_whitespace().collect::<Vec<_>>().join(", ");
+    let lang = language.as_deref().unwrap_or("en");
     let cfg = FullTextIndexConfiguration::new(
         couchbase_lite::QueryLanguage::N1QL,
         &expressions,
         false,
-        None,
+        Some(lang),
         None,
     )
     .map_err(|e| e.to_string())?;
