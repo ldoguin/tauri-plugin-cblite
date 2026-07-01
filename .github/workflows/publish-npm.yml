@@ -1,62 +1,53 @@
-name: Publish to npm
+name: Publish
 
+# Trigger on version tags (e.g. v0.2.0) or manually.
+# NOTE: crates.io publishing is blocked because tauri-plugin-cblite depends on
+# couchbase_lite via a git rev. Publish that crate to crates.io first, then
+# add a cargo-publish job here.
 on:
-  workflow_dispatch:
   push:
-    branches:
-      -main
-  pull_request:
-    branches:
-      - main
-    types:
-      - closed
+    tags: ['v*']
+  workflow_dispatch:
 
 jobs:
-  publish:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+  publish-npm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: |
-          cd guest-js
-          npm install
+        working-directory: guest-js
+        run: npm install
 
       - name: Build
-        run: |
-          cd guest-js
-          npm run build
+        working-directory: guest-js
+        run: npm run build
 
       - name: Copy README
-        run: |
-          cp README.md guest-js/README.md
+        run: cp README.md guest-js/README.md
 
       - name: Check if version changed
         id: version-check
+        working-directory: guest-js
         run: |
-          cd guest-js
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           PUBLISHED_VERSION=$(npm view tauri-plugin-cblite version 2>/dev/null || echo "0.0.0")
-
           if [ "$PACKAGE_VERSION" != "$PUBLISHED_VERSION" ]; then
-            echo "Version changed from $PUBLISHED_VERSION to $PACKAGE_VERSION"
-            echo "should_publish=true" >> $GITHUB_OUTPUT
+            echo "Version changed: $PUBLISHED_VERSION → $PACKAGE_VERSION"
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Version unchanged ($PACKAGE_VERSION)"
-            echo "should_publish=false" >> $GITHUB_OUTPUT
+            echo "Version unchanged ($PACKAGE_VERSION) — skipping publish"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish to npm
         if: steps.version-check.outputs.should_publish == 'true'
-        run: |
-          cd guest-js
-          npm publish --access public
+        working-directory: guest-js
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
