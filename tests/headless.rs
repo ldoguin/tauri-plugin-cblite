@@ -5,9 +5,10 @@
 /// (TLSIdentity, UrlEndpointListener, cert authenticator, server_certificate)
 /// that are now implemented in the wrapper.
 
+use couchbase_lite::{Database, DatabaseConfiguration, Document};
+#[cfg(feature = "enterprise")]
 use couchbase_lite::{
-    Database, DatabaseConfiguration, Document, Endpoint, MutableArray,
-    ReplicationCollection, ReplicationConfigurationContext, Replicator,
+    Endpoint, MutableArray, ReplicationCollection, ReplicationConfigurationContext, Replicator,
     ReplicatorActivityLevel, ReplicatorConfiguration, ReplicatorType,
 };
 use std::sync::mpsc;
@@ -25,6 +26,7 @@ fn open_temp_db(dir: &TempDir, name: &str) -> Database {
     Database::open(name, Some(config)).expect("open database")
 }
 
+#[cfg(feature = "enterprise")]
 fn make_replicator(src: &Database, dst: &Database) -> Replicator {
     let coll = src
         .default_collection_or_error()
