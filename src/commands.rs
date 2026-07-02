@@ -94,7 +94,7 @@ pub async fn create_fts_index<R: Runtime>(
     let plugin_state = guard.as_ref().ok_or("Database not open")?;
 
     let (scope_name, coll_name) = parse_collection(&collection);
-    let mut coll = plugin_state
+    let coll = plugin_state
         .db
         .create_collection(coll_name.to_string(), scope_name.to_string())
         .map_err(|e| e.to_string())?;

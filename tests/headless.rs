@@ -73,7 +73,7 @@ fn make_replicator(src: &Database, dst: &Database) -> Replicator {
 #[test]
 fn collection_change_event_fires() {
     let dir = TempDir::new().unwrap();
-    let mut db = open_temp_db(&dir, "b1_db");
+    let db = open_temp_db(&dir, "b1_db");
 
     let (tx, rx) = mpsc::channel::<Vec<String>>();
 
