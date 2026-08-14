@@ -230,6 +230,19 @@ pub async fn start_replication<R: Runtime>(
     // Additional collections to replicate in the same replicator.
     // Allows multi-collection sync without multiple replicator instances.
     extra_collections: Option<Vec<String>>,
+    // Sync Gateway channel filter applied to EVERY collection in this
+    // replicator (primary + extras alike — a real per-collection channel
+    // list, not the unimplemented global one; see the comment below).
+    //
+    // Confirmed live: an empty per-collection channels array is NOT "no
+    // filter" — Sync Gateway's BLIP protocol rejects it outright with a
+    // fatal `WebSocket error 400, "400 Illegal channel name \"\""`, which
+    // kills the WHOLE replicator (push included, not just pull), and does
+    // so silently from the caller's perspective unless the `log` crate has
+    // a backend registered. This is NOT what the (pre-existing, incorrect)
+    // comment two lines below used to claim. Callers MUST pass at least
+    // one real channel name the authenticated user actually has access to.
+    channels: Option<Vec<String>>,
 ) -> Result<(), String> {
     use couchbase_lite::{
         Authenticator, Endpoint, MutableArray, ReplicationCollection,
@@ -244,6 +257,16 @@ pub async fn start_replication<R: Runtime>(
     debug!("Session ID: {:?}", session_id);
     debug!("Field encryption password: {:?}", field_encryption_password);
     debug!("Field encryption salt: {:?}", field_encryption_salt);
+    debug!("Channels: {:?}", channels);
+
+    let channel_names: Vec<String> = channels.unwrap_or_default();
+    let make_channels_array = || {
+        let mut arr = MutableArray::new();
+        for name in &channel_names {
+            arr.append().put_string(name);
+        }
+        arr
+    };
 
     let mut guard = state.lock().map_err(|e| e.to_string())?;
     let plugin_state = guard.as_mut().ok_or("Database not open")?;
@@ -288,11 +311,12 @@ pub async fn start_replication<R: Runtime>(
         },
     };
 
-    // Empty channels = no filter = "all channels the user has access to" (per SG).
     // channels: ["*"] requests the SG star channel explicitly, which requires
     // admin_channels:["*"]. Our users only have user.{username}, so ["*"] returns nothing.
-    // GLOBAL channels ARE NOT IMPLEMENTED. ONLY PER-COLLECTION channels work.
-    // This has been verified in the replicator binding source code at line 771.
+    // GLOBAL channels ARE NOT IMPLEMENTED. ONLY PER-COLLECTION channels work
+    // (verified in the replicator binding source code at line 771) — and, as
+    // of the `channels` parameter above, an empty per-collection array is no
+    // longer used: it's a fatal error over BLIP, not "no filter".
 
     // Build the list of collections to replicate.
     // `collection` is always included; `extra_collections` adds more in one replicator.
@@ -312,7 +336,7 @@ pub async fn start_replication<R: Runtime>(
         conflict_resolver: None,
         push_filter: None,
         pull_filter: None,
-        channels: MutableArray::default(),
+        channels: make_channels_array(),
         document_ids: MutableArray::default(),
     });
     // Add any extra collections.
@@ -324,7 +348,7 @@ pub async fn start_replication<R: Runtime>(
             conflict_resolver: None,
             push_filter: None,
             pull_filter: None,
-            channels: MutableArray::default(),
+            channels: make_channels_array(),
             document_ids: MutableArray::default(),
         });
     }

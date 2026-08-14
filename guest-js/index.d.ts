@@ -13,7 +13,7 @@ export declare function startReplication(url: string, collection: string, direct
 }, fieldEncryption?: {
     password: string;
     salt: string;
-}): Promise<void>;
+}, extraCollections?: string[], channels?: string[]): Promise<void>;
 export declare function stopReplication(): Promise<void>;
 export declare function executeQuery(language: "N1QL" | "JSON", queryStr: string, parameters?: Record<string, unknown>): Promise<unknown[]>;
 /** Create (or idempotently ensure) a full-text search index on a collection field. */

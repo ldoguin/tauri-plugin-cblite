@@ -61,7 +61,13 @@ export function startReplication(
   direction: "push" | "pull" | "both",
   auth?: { username: string; password: string } | { sessionId: string; cookieName?: string },
   fieldEncryption?: { password: string; salt: string },
-  extraCollections?: string[]
+  extraCollections?: string[],
+  // Sync Gateway channel filter applied to every collection in this
+  // replicator. REQUIRED in practice: an empty/omitted list is NOT "no
+  // filter" — confirmed live, Sync Gateway rejects it outright with a
+  // fatal `400 Illegal channel name ""` that kills the whole replicator
+  // (push included). Pass every channel the authenticated user needs.
+  channels?: string[]
 ): Promise<void> {
   const isSession = auth && "sessionId" in auth;
   return invoke("plugin:cblite|start_replication", {
@@ -75,6 +81,7 @@ export function startReplication(
     fieldEncryptionPassword: fieldEncryption?.password ?? null,
     fieldEncryptionSalt: fieldEncryption?.salt ?? null,
     extraCollections: extraCollections ?? null,
+    channels: channels ?? null,
   });
 }
 
