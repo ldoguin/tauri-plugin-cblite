@@ -52,9 +52,7 @@ pub async fn open_database<R: Runtime>(
         } else {
             ("_default".to_string(), coll_spec)
         };
-        let mut coll = db
-            .create_collection(coll_name.clone(), scope_name)
-            .map_err(|e| e.to_string())?;
+        let mut coll = open_collection(&db, &scope_name, &coll_name)?;
 
         let app_handle = app.clone();
         let listener = coll.add_listener(Box::new(move |_coll, doc_ids| {
@@ -94,10 +92,7 @@ pub async fn create_fts_index<R: Runtime>(
     let plugin_state = guard.as_ref().ok_or("Database not open")?;
 
     let (scope_name, coll_name) = parse_collection(&collection);
-    let coll = plugin_state
-        .db
-        .create_collection(coll_name.to_string(), scope_name.to_string())
-        .map_err(|e| e.to_string())?;
+    let coll = open_collection(&plugin_state.db, scope_name, coll_name)?;
 
     // CBL N1QL FTS expects comma-delimited expressions; the JS API passes space-separated field names.
     let expressions = field.split_whitespace().collect::<Vec<_>>().join(", ");
@@ -125,10 +120,7 @@ pub async fn list_indexes<R: Runtime>(
     let guard = state.lock().map_err(|e| e.to_string())?;
     let plugin_state = guard.as_ref().ok_or("Database not open")?;
     let (scope_name, coll_name) = parse_collection(&collection);
-    let coll = plugin_state
-        .db
-        .create_collection(coll_name.to_string(), scope_name.to_string())
-        .map_err(|e| e.to_string())?;
+    let coll = open_collection(&plugin_state.db, scope_name, coll_name)?;
     let names_array = coll.get_index_names().map_err(|e| e.to_string())?;
     let mut names = Vec::new();
     for i in 0..names_array.count() {
@@ -165,10 +157,7 @@ pub async fn get_document<R: Runtime>(
     let plugin_state = guard.as_ref().ok_or("Database not open")?;
 
     let (scope_name, coll_name) = parse_collection(&collection);
-    let coll = plugin_state
-        .db
-        .create_collection(coll_name.to_string(), scope_name.to_string())
-        .map_err(|e| e.to_string())?;
+    let coll = open_collection(&plugin_state.db, scope_name, coll_name)?;
 
     let doc = coll.get_document(&doc_id).map_err(|e| e.to_string())?;
     let json_str = doc.properties_as_json();
@@ -190,10 +179,7 @@ pub async fn save_document<R: Runtime>(
     let plugin_state = guard.as_mut().ok_or("Database not open")?;
 
     let (scope_name, coll_name) = parse_collection(&collection);
-    let mut coll = plugin_state
-        .db
-        .create_collection(coll_name.to_string(), scope_name.to_string())
-        .map_err(|e| e.to_string())?;
+    let mut coll = open_collection(&plugin_state.db, scope_name, coll_name)?;
 
     // `{ _deleted: true }` or `{ __deleted: true }` are soft-delete sentinels: purge the document.
     // `__deleted` is the preferred non-CBL-reserved tombstone used by JS deleteKnowledgeChunk.
@@ -263,10 +249,7 @@ pub async fn start_replication<R: Runtime>(
     let plugin_state = guard.as_mut().ok_or("Database not open")?;
 
     let (scope_name, coll_name) = parse_collection(&collection);
-    let coll = plugin_state
-        .db
-        .create_collection(coll_name.to_string(), scope_name.to_string())
-        .map_err(|e| e.to_string())?;
+    let coll = open_collection(&plugin_state.db, scope_name, coll_name)?;
 
     let endpoint = Endpoint::new_with_url(&url).map_err(|e| e.to_string())?;
     debug!("Created endpoint for URL: {}", url);
@@ -335,10 +318,7 @@ pub async fn start_replication<R: Runtime>(
     // Add any extra collections.
     for spec in all_specs.iter().skip(1) {
         let (scope_name, coll_name) = parse_collection(spec);
-        let extra_coll = plugin_state
-            .db
-            .create_collection(coll_name.to_string(), scope_name.to_string())
-            .map_err(|e| e.to_string())?;
+        let extra_coll = open_collection(&plugin_state.db, scope_name, coll_name)?;
         collections.push(ReplicationCollection {
             collection: extra_coll,
             conflict_resolver: None,
@@ -557,6 +537,26 @@ fn parse_collection(s: &str) -> (&str, &str) {
         (scope, coll)
     } else {
         ("_default", s)
+    }
+}
+
+/// Return the requested collection.
+///
+/// CBL 4.1.0 on Linux throws a C++ exception inside
+/// `CBLDatabase_CreateCollection` for the built-in default collection
+/// (`_default._default`) because the name starts with `_`.
+/// Work around this by routing through `CBLDatabase_DefaultCollection`
+/// whenever scope == `_default` AND collection == `_default`.
+fn open_collection(
+    db: &couchbase_lite::Database,
+    scope_name: &str,
+    coll_name: &str,
+) -> Result<couchbase_lite::collection::Collection, String> {
+    if scope_name == "_default" && coll_name == "_default" {
+        db.default_collection_or_error().map_err(|e| e.to_string())
+    } else {
+        db.create_collection(coll_name.to_string(), scope_name.to_string())
+            .map_err(|e| e.to_string())
     }
 }
 
