@@ -16,9 +16,11 @@ export declare function startReplication(url: string, collection: string, direct
 }, extraCollections?: string[], channels?: string[]): Promise<void>;
 export declare function stopReplication(): Promise<void>;
 export declare function executeQuery(language: "N1QL" | "JSON", queryStr: string, parameters?: Record<string, unknown>): Promise<unknown[]>;
-/** Create (or idempotently ensure) a full-text search index on a collection field. */
+/**
+ * Create (or idempotently ensure) a full-text search index on a collection field.
+ * Safe to call on every app start — CBL is a no-op if the identical index exists.
+ */
 export declare function createFtsIndex(collection: string, indexName: string, field: string): Promise<void>;
-/** List the names of all indexes on a collection. */
 export declare function listIndexes(collection: string): Promise<string[]>;
 /**
  * Register a predictive model for use in PREDICTION() queries.
@@ -47,3 +49,29 @@ export declare function getBlobData(digest: string): Promise<string>;
 export declare function writeExportFile(filename: string, data: string): Promise<string>;
 export declare function onCollectionChanged(handler: (docIds: string[]) => void): Promise<() => void>;
 export declare function onReplicationStatus(handler: (activity: string, error?: string) => void): Promise<() => void>;
+export interface PeerListenerInfo {
+    /** The port actually bound; asking for 0 lets the OS choose. */
+    port: number;
+    /** Every address a peer could dial, as ws:// URLs. */
+    urls: string[];
+}
+export interface PeerConnectionStatus {
+    listening: boolean;
+    port: number;
+    connections: number;
+    /** serde serialises the Rust field as active_connections. */
+    active_connections: number;
+    urls: string[];
+}
+/** Start accepting replication connections from other Couchbase Lite instances. */
+export declare function startPeerListener(collections: string[], port?: number, readOnly?: boolean): Promise<PeerListenerInfo>;
+export declare function stopPeerListener(): Promise<void>;
+export declare function peerListenerStatus(): Promise<PeerConnectionStatus>;
+/**
+ * Whether this build can host peers.
+ *
+ * A Community build has no peer commands at all, so the invoke rejects. Asking
+ * once and remembering is kinder than letting a replication quietly never
+ * connect.
+ */
+export declare function peerSupported(): Promise<boolean>;

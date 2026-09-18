@@ -210,3 +210,63 @@ export function onReplicationStatus(
     handler(event.payload);
   });
 }
+
+// ── Peer-to-peer replication ────────────────────────────────────────────────
+//
+// Couchbase Lite can accept replication connections directly, with no Sync
+// Gateway and no server. These commands exist only in an Enterprise build - the
+// underlying CBLURLEndpointListener is an Enterprise feature - so
+// `peerSupported()` asks rather than assuming.
+
+export interface PeerListenerInfo {
+  /** The port actually bound; asking for 0 lets the OS choose. */
+  port: number;
+  /** Every address a peer could dial, as ws:// URLs. */
+  urls: string[];
+}
+
+export interface PeerConnectionStatus {
+  listening: boolean;
+  port: number;
+  connections: number;
+  /** serde serialises the Rust field as active_connections. */
+  active_connections: number;
+  urls: string[];
+}
+
+/** Start accepting replication connections from other Couchbase Lite instances. */
+export function startPeerListener(
+  collections: string[],
+  port?: number,
+  readOnly?: boolean
+): Promise<PeerListenerInfo> {
+  return invoke("plugin:cblite|start_peer_listener", {
+    collections,
+    port: port ?? 0,
+    readOnly: readOnly ?? false,
+  });
+}
+
+export function stopPeerListener(): Promise<void> {
+  return invoke("plugin:cblite|stop_peer_listener");
+}
+
+export function peerListenerStatus(): Promise<PeerConnectionStatus> {
+  return invoke("plugin:cblite|peer_listener_status");
+}
+
+/**
+ * Whether this build can host peers.
+ *
+ * A Community build has no peer commands at all, so the invoke rejects. Asking
+ * once and remembering is kinder than letting a replication quietly never
+ * connect.
+ */
+export async function peerSupported(): Promise<boolean> {
+  try {
+    await peerListenerStatus();
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -295,10 +295,10 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "Default permission set — allows all plugin commands.\n#### This default permission set includes:\n\n- `allow-open-database`\n- `allow-close-database`\n- `allow-get-document`\n- `allow-save-document`\n- `allow-start-replication`\n- `allow-stop-replication`\n- `allow-execute-query`\n- `allow-create-fts-index`\n- `allow-list-indexes`\n- `allow-save-blob`\n- `allow-get-blob-data`\n- `allow-write-export-file`\n- `allow-register-listener`\n- `allow-remove-listener`",
+          "description": "Default permission set — allows all plugin commands.\n#### This default permission set includes:\n\n- `allow-start-peer-listener`\n- `allow-stop-peer-listener`\n- `allow-peer-listener-status`\n- `allow-open-database`\n- `allow-close-database`\n- `allow-get-document`\n- `allow-save-document`\n- `allow-start-replication`\n- `allow-stop-replication`\n- `allow-execute-query`\n- `allow-create-fts-index`\n- `allow-list-indexes`\n- `allow-save-blob`\n- `allow-get-blob-data`\n- `allow-write-export-file`\n- `allow-register-listener`\n- `allow-remove-listener`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permission set — allows all plugin commands.\n#### This default permission set includes:\n\n- `allow-open-database`\n- `allow-close-database`\n- `allow-get-document`\n- `allow-save-document`\n- `allow-start-replication`\n- `allow-stop-replication`\n- `allow-execute-query`\n- `allow-create-fts-index`\n- `allow-list-indexes`\n- `allow-save-blob`\n- `allow-get-blob-data`\n- `allow-write-export-file`\n- `allow-register-listener`\n- `allow-remove-listener`"
+          "markdownDescription": "Default permission set — allows all plugin commands.\n#### This default permission set includes:\n\n- `allow-start-peer-listener`\n- `allow-stop-peer-listener`\n- `allow-peer-listener-status`\n- `allow-open-database`\n- `allow-close-database`\n- `allow-get-document`\n- `allow-save-document`\n- `allow-start-replication`\n- `allow-stop-replication`\n- `allow-execute-query`\n- `allow-create-fts-index`\n- `allow-list-indexes`\n- `allow-save-blob`\n- `allow-get-blob-data`\n- `allow-write-export-file`\n- `allow-register-listener`\n- `allow-remove-listener`"
         },
         {
           "description": "Allows opening a database.",
@@ -383,6 +383,24 @@
           "type": "string",
           "const": "allow-remove-listener",
           "markdownDescription": "Allows removing Channel-based event listeners (mobile)."
+        },
+        {
+          "description": "Allows hosting peer-to-peer replication.",
+          "type": "string",
+          "const": "allow-start-peer-listener",
+          "markdownDescription": "Allows hosting peer-to-peer replication."
+        },
+        {
+          "description": "Allows stopping the peer-to-peer listener.",
+          "type": "string",
+          "const": "allow-stop-peer-listener",
+          "markdownDescription": "Allows stopping the peer-to-peer listener."
+        },
+        {
+          "description": "Allows reading peer-to-peer listener status.",
+          "type": "string",
+          "const": "allow-peer-listener-status",
+          "markdownDescription": "Allows reading peer-to-peer listener status."
         }
       ]
     }

@@ -8,6 +8,13 @@ pub mod events;
 // ── Desktop-only modules (requires the native-cbl feature) ────────────────────
 #[cfg(all(not(mobile), feature = "native-cbl"))]
 pub mod commands;
+/// Peer-to-peer replication.
+///
+/// Desktop only - a phone is not a host - and Enterprise only, because the
+/// underlying CBLURLEndpointListener is an Enterprise feature. A Community
+/// build simply does not have these commands.
+#[cfg(all(not(mobile), feature = "enterprise"))]
+pub mod peer;
 #[cfg(all(not(mobile), feature = "native-cbl"))]
 use couchbase_lite::{collection::CollectionChangeListener, Database, Listener, ListenerToken, Replicator};
 #[cfg(all(not(mobile), feature = "native-cbl"))]
@@ -69,6 +76,12 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                 commands::save_blob,
                 commands::get_blob_data,
                 commands::write_export_file,
+                #[cfg(feature = "enterprise")]
+                peer::start_peer_listener,
+                #[cfg(feature = "enterprise")]
+                peer::stop_peer_listener,
+                #[cfg(feature = "enterprise")]
+                peer::peer_listener_status,
             ])
             .setup(|app, _api| {
                 let state: PluginStateArc = Arc::new(Mutex::new(None));
@@ -76,6 +89,11 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                 let pred_state: PredictionStateArc =
                     Arc::new(Mutex::new(std::collections::HashSet::new()));
                 app.manage(pred_state);
+                // Peer-to-peer listener state. Separate from the database
+                // state because hosting is optional and orthogonal: a
+                // client that dials a peer never starts one.
+                #[cfg(feature = "enterprise")]
+                app.manage(peer::new_peer_state());
                 Ok(())
             })
             .build()

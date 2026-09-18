@@ -35,7 +35,13 @@ export function saveDocument(collection, docId, body, encryptedFields) {
         encryptedFields: encryptedFields ?? null,
     });
 }
-export function startReplication(url, collection, direction, auth, fieldEncryption) {
+export function startReplication(url, collection, direction, auth, fieldEncryption, extraCollections, 
+// Sync Gateway channel filter applied to every collection in this
+// replicator. REQUIRED in practice: an empty/omitted list is NOT "no
+// filter" — confirmed live, Sync Gateway rejects it outright with a
+// fatal `400 Illegal channel name ""` that kills the whole replicator
+// (push included). Pass every channel the authenticated user needs.
+channels) {
     const isSession = auth && "sessionId" in auth;
     return invoke("plugin:cblite|start_replication", {
         url,
@@ -47,6 +53,8 @@ export function startReplication(url, collection, direction, auth, fieldEncrypti
         cookieName: isSession ? (auth.cookieName ?? null) : null,
         fieldEncryptionPassword: fieldEncryption?.password ?? null,
         fieldEncryptionSalt: fieldEncryption?.salt ?? null,
+        extraCollections: extraCollections ?? null,
+        channels: channels ?? null,
     });
 }
 export function stopReplication() {
@@ -59,7 +67,10 @@ export function executeQuery(language, queryStr, parameters) {
         parameters: parameters ?? null,
     });
 }
-/** Create (or idempotently ensure) a full-text search index on a collection field. */
+/**
+ * Create (or idempotently ensure) a full-text search index on a collection field.
+ * Safe to call on every app start — CBL is a no-op if the identical index exists.
+ */
 export function createFtsIndex(collection, indexName, field) {
     return invoke("plugin:cblite|create_fts_index", { collection, indexName, field });
 }
@@ -141,4 +152,34 @@ export function onReplicationStatus(handler) {
     return listen(REPLICATION_STATUS_EVENT, (event) => {
         handler(event.payload);
     });
+}
+/** Start accepting replication connections from other Couchbase Lite instances. */
+export function startPeerListener(collections, port, readOnly) {
+    return invoke("plugin:cblite|start_peer_listener", {
+        collections,
+        port: port ?? 0,
+        readOnly: readOnly ?? false,
+    });
+}
+export function stopPeerListener() {
+    return invoke("plugin:cblite|stop_peer_listener");
+}
+export function peerListenerStatus() {
+    return invoke("plugin:cblite|peer_listener_status");
+}
+/**
+ * Whether this build can host peers.
+ *
+ * A Community build has no peer commands at all, so the invoke rejects. Asking
+ * once and remembering is kinder than letting a replication quietly never
+ * connect.
+ */
+export async function peerSupported() {
+    try {
+        await peerListenerStatus();
+        return true;
+    }
+    catch {
+        return false;
+    }
 }

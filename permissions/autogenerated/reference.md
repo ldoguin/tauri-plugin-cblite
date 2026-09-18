@@ -4,6 +4,9 @@ Default permission set — allows all plugin commands.
 
 #### This default permission set includes the following:
 
+- `allow-start-peer-listener`
+- `allow-stop-peer-listener`
+- `allow-peer-listener-status`
 - `allow-open-database`
 - `allow-close-database`
 - `allow-get-document`
@@ -206,6 +209,45 @@ Allows registering Channel-based event listeners (mobile).
 <td>
 
 Allows removing Channel-based event listeners (mobile).
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`cblite:allow-start-peer-listener`
+
+</td>
+<td>
+
+Allows hosting peer-to-peer replication.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`cblite:allow-stop-peer-listener`
+
+</td>
+<td>
+
+Allows stopping the peer-to-peer listener.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`cblite:allow-peer-listener-status`
+
+</td>
+<td>
+
+Allows reading peer-to-peer listener status.
 
 </td>
 </tr>

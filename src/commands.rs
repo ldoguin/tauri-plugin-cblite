@@ -556,6 +556,20 @@ pub async fn get_blob_data<R: Runtime>(
     Ok(general_purpose::STANDARD.encode(&bytes))
 }
 
+/// Shared with the peer module: one spelling of "scope.collection" for the plugin.
+pub fn parse_collection_public(s: &str) -> (&str, &str) {
+    parse_collection(s)
+}
+
+/// Shared with the peer module, for the same reason.
+pub fn open_collection_public(
+    db: &couchbase_lite::Database,
+    scope_name: &str,
+    coll_name: &str,
+) -> Result<couchbase_lite::collection::Collection, String> {
+    open_collection(db, scope_name, coll_name)
+}
+
 fn parse_collection(s: &str) -> (&str, &str) {
     if let Some((scope, coll)) = s.split_once('.') {
         (scope, coll)
