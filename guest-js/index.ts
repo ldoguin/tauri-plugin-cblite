@@ -67,7 +67,14 @@ export function startReplication(
   // filter" — confirmed live, Sync Gateway rejects it outright with a
   // fatal `400 Illegal channel name ""` that kills the whole replicator
   // (push included). Pass every channel the authenticated user needs.
-  channels?: string[]
+  channels?: string[],
+  // Distinguishes this replicator from any others running on the same
+  // database at once — e.g. `"uplink"` (a server) and `"peer"` (a direct
+  // peer-to-peer leg). Defaults to `"default"`: starting a second
+  // replication with the same (or no) label stops and replaces the first,
+  // same as before this parameter existed. Pass distinct labels to run
+  // more than one replicator concurrently.
+  label?: string
 ): Promise<void> {
   const isSession = auth && "sessionId" in auth;
   return invoke("plugin:cblite|start_replication", {
@@ -82,11 +89,13 @@ export function startReplication(
     fieldEncryptionSalt: fieldEncryption?.salt ?? null,
     extraCollections: extraCollections ?? null,
     channels: channels ?? null,
+    label: label ?? null,
   });
 }
 
-export function stopReplication(): Promise<void> {
-  return invoke("plugin:cblite|stop_replication");
+/** `label` defaults to `"default"`, matching `startReplication`. */
+export function stopReplication(label?: string): Promise<void> {
+  return invoke("plugin:cblite|stop_replication", { label: label ?? null });
 }
 
 export function executeQuery(
@@ -188,11 +197,20 @@ export function onCollectionChanged(
   });
 }
 
+/**
+ * `replicator` (4th argument) is the label passed to `startReplication`
+ * (`"default"` if none was given) — added so a device running an uplink and
+ * a peer replicator at once can tell which one just changed. Appended after
+ * the original two arguments rather than inserted before them, so an
+ * existing `(activity, error) => ...` handler keeps compiling and working
+ * unchanged; it simply never looks at the 3rd argument.
+ */
 export function onReplicationStatus(
-  handler: (activity: string, error?: string) => void
+  handler: (activity: string, error?: string, replicator?: string) => void
 ): Promise<() => void> {
   if (isMobile()) {
-    // Android: plugin events go through Tauri Channels.
+    // Android: plugin events go through Tauri Channels. Mobile does not yet
+    // have multiple concurrent replicators, so there is no label to report.
     const ch = new Channel<{ activity: string; error?: string }>();
     ch.onmessage = (payload: { activity: string; error?: string }) => handler(payload.activity ?? "", payload.error);
     return invoke("plugin:cblite|registerListener", {
@@ -205,9 +223,9 @@ export function onReplicationStatus(
       }).catch(() => {/* ignore */});
     });
   }
-  // Desktop: emitted via Rust app_handle.emit()
-  return listen<string>(REPLICATION_STATUS_EVENT, (event: { payload: string }) => {
-    handler(event.payload);
+  // Desktop: emitted via Rust app_handle.emit() as { replicator, activity }.
+  return listen<{ replicator: string; activity: string }>(REPLICATION_STATUS_EVENT, (event) => {
+    handler(event.payload.activity, undefined, event.payload.replicator);
   });
 }
 

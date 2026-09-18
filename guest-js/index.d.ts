@@ -13,8 +13,9 @@ export declare function startReplication(url: string, collection: string, direct
 }, fieldEncryption?: {
     password: string;
     salt: string;
-}, extraCollections?: string[], channels?: string[]): Promise<void>;
-export declare function stopReplication(): Promise<void>;
+}, extraCollections?: string[], channels?: string[], label?: string): Promise<void>;
+/** `label` defaults to `"default"`, matching `startReplication`. */
+export declare function stopReplication(label?: string): Promise<void>;
 export declare function executeQuery(language: "N1QL" | "JSON", queryStr: string, parameters?: Record<string, unknown>): Promise<unknown[]>;
 /**
  * Create (or idempotently ensure) a full-text search index on a collection field.
@@ -48,7 +49,15 @@ export declare function getBlobData(digest: string): Promise<string>;
  */
 export declare function writeExportFile(filename: string, data: string): Promise<string>;
 export declare function onCollectionChanged(handler: (docIds: string[]) => void): Promise<() => void>;
-export declare function onReplicationStatus(handler: (activity: string, error?: string) => void): Promise<() => void>;
+/**
+ * `replicator` (4th argument) is the label passed to `startReplication`
+ * (`"default"` if none was given) — added so a device running an uplink and
+ * a peer replicator at once can tell which one just changed. Appended after
+ * the original two arguments rather than inserted before them, so an
+ * existing `(activity, error) => ...` handler keeps compiling and working
+ * unchanged; it simply never looks at the 3rd argument.
+ */
+export declare function onReplicationStatus(handler: (activity: string, error?: string, replicator?: string) => void): Promise<() => void>;
 export interface PeerListenerInfo {
     /** The port actually bound; asking for 0 lets the OS choose. */
     port: number;

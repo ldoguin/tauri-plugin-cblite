@@ -70,7 +70,7 @@ pub async fn open_database<R: Runtime>(
         listeners: vec![],
         coll_listeners,
         collections: kept_collections,
-        replicator: None,
+        replicators: std::collections::HashMap::new(),
     });
     Ok(())
 }
@@ -143,9 +143,11 @@ pub async fn close_database<R: Runtime>(
     state: State<'_, PluginStateArc>,
 ) -> Result<(), String> {
     let mut guard = state.lock().map_err(|e| e.to_string())?;
-    if let Some(plugin_state) = guard.take() {
+    if let Some(mut plugin_state) = guard.take() {
         drop(plugin_state.listeners);
-        drop(plugin_state.replicator);
+        for (_, mut replicator) in plugin_state.replicators.drain() {
+            replicator.stop(None);
+        }
         plugin_state.db.close().map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -248,7 +250,15 @@ pub async fn start_replication<R: Runtime>(
     // comment two lines below used to claim. Callers MUST pass at least
     // one real channel name the authenticated user actually has access to.
     channels: Option<Vec<String>>,
+    // Distinguishes this replicator from any others running on the same
+    // database — e.g. `"uplink"` (a server/Edge Server) and `"peer"` (a
+    // direct peer-to-peer leg) at once. Defaults to `"default"`, which
+    // preserves the original single-replicator behaviour: starting a second
+    // replication with the same (or no) label stops and replaces the first,
+    // exactly as before.
+    label: Option<String>,
 ) -> Result<(), String> {
+    let label = label.unwrap_or_else(|| "default".to_string());
     use couchbase_lite::{
         Authenticator, Endpoint, MutableArray, ReplicationCollection,
         ReplicationConfigurationContext, Replicator, ReplicatorConfiguration, ReplicatorType,
@@ -293,6 +303,13 @@ pub async fn start_replication<R: Runtime>(
 
     let mut guard = state.lock().map_err(|e| e.to_string())?;
     let plugin_state = guard.as_mut().ok_or("Database not open")?;
+
+    // Restarting under the same label replaces cleanly, exactly like the
+    // original single-replicator behaviour — a different label leaves this
+    // one alone and simply adds a second, concurrent replicator.
+    if let Some(mut existing) = plugin_state.replicators.remove(&label) {
+        existing.stop(None);
+    }
 
     let (scope_name, coll_name) = parse_collection(&collection);
     let coll = open_collection(&plugin_state.db, scope_name, coll_name)?;
@@ -430,6 +447,7 @@ pub async fn start_replication<R: Runtime>(
     }
 
     let app_handle = app.clone();
+    let listener_label = label.clone();
     let mut replicator = Replicator::new(config, context)
         .map_err(|e| {
             error!("Failed to create replicator: {}", e);
@@ -437,33 +455,38 @@ pub async fn start_replication<R: Runtime>(
         })?
         .add_change_listener(Box::new(move |status| {
             use couchbase_lite::ReplicatorActivityLevel;
-            let label = match status.activity {
+            let activity = match status.activity {
                 ReplicatorActivityLevel::Stopped => {
-                    info!("Replication stopped");
+                    info!("Replication '{}' stopped", listener_label);
                     "Stopped"
                 }
                 ReplicatorActivityLevel::Offline => {
-                    info!("Replication offline");
+                    info!("Replication '{}' offline", listener_label);
                     "Offline"
                 }
                 ReplicatorActivityLevel::Connecting => {
-                    info!("Replication connecting");
+                    info!("Replication '{}' connecting", listener_label);
                     "Connecting"
                 }
                 ReplicatorActivityLevel::Idle => {
-                    info!("Replication idle");
+                    info!("Replication '{}' idle", listener_label);
                     "Idle"
                 }
                 ReplicatorActivityLevel::Busy => {
-                    info!("Replication busy");
+                    info!("Replication '{}' busy", listener_label);
                     "Busy"
                 }
             };
-            let _ = app_handle.emit(events::REPLICATION_STATUS, label);
+            // An object, not a bare string: with more than one replicator
+            // running at once the frontend needs to know which one changed.
+            let _ = app_handle.emit(
+                events::REPLICATION_STATUS,
+                serde_json::json!({ "replicator": listener_label, "activity": activity }),
+            );
         }));
     replicator.start(false);
-    info!("Replication started successfully");
-    plugin_state.replicator = Some(replicator);
+    info!("Replication '{}' started successfully", label);
+    plugin_state.replicators.insert(label, replicator);
     Ok(())
 }
 
@@ -471,10 +494,12 @@ pub async fn start_replication<R: Runtime>(
 pub async fn stop_replication<R: Runtime>(
     _app: AppHandle<R>,
     state: State<'_, PluginStateArc>,
+    label: Option<String>,
 ) -> Result<(), String> {
+    let label = label.unwrap_or_else(|| "default".to_string());
     let mut guard = state.lock().map_err(|e| e.to_string())?;
     if let Some(plugin_state) = guard.as_mut() {
-        if let Some(mut replicator) = plugin_state.replicator.take() {
+        if let Some(mut replicator) = plugin_state.replicators.remove(&label) {
             replicator.stop(None);
         }
     }

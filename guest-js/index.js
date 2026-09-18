@@ -41,7 +41,14 @@ export function startReplication(url, collection, direction, auth, fieldEncrypti
 // filter" — confirmed live, Sync Gateway rejects it outright with a
 // fatal `400 Illegal channel name ""` that kills the whole replicator
 // (push included). Pass every channel the authenticated user needs.
-channels) {
+channels, 
+// Distinguishes this replicator from any others running on the same
+// database at once — e.g. `"uplink"` (a server) and `"peer"` (a direct
+// peer-to-peer leg). Defaults to `"default"`: starting a second
+// replication with the same (or no) label stops and replaces the first,
+// same as before this parameter existed. Pass distinct labels to run
+// more than one replicator concurrently.
+label) {
     const isSession = auth && "sessionId" in auth;
     return invoke("plugin:cblite|start_replication", {
         url,
@@ -55,10 +62,12 @@ channels) {
         fieldEncryptionSalt: fieldEncryption?.salt ?? null,
         extraCollections: extraCollections ?? null,
         channels: channels ?? null,
+        label: label ?? null,
     });
 }
-export function stopReplication() {
-    return invoke("plugin:cblite|stop_replication");
+/** `label` defaults to `"default"`, matching `startReplication`. */
+export function stopReplication(label) {
+    return invoke("plugin:cblite|stop_replication", { label: label ?? null });
 }
 export function executeQuery(language, queryStr, parameters) {
     return invoke("plugin:cblite|execute_query", {
@@ -133,9 +142,18 @@ export function onCollectionChanged(handler) {
         handler(event.payload);
     });
 }
+/**
+ * `replicator` (4th argument) is the label passed to `startReplication`
+ * (`"default"` if none was given) — added so a device running an uplink and
+ * a peer replicator at once can tell which one just changed. Appended after
+ * the original two arguments rather than inserted before them, so an
+ * existing `(activity, error) => ...` handler keeps compiling and working
+ * unchanged; it simply never looks at the 3rd argument.
+ */
 export function onReplicationStatus(handler) {
     if (isMobile()) {
-        // Android: plugin events go through Tauri Channels.
+        // Android: plugin events go through Tauri Channels. Mobile does not yet
+        // have multiple concurrent replicators, so there is no label to report.
         const ch = new Channel();
         ch.onmessage = (payload) => handler(payload.activity ?? "", payload.error);
         return invoke("plugin:cblite|registerListener", {
@@ -148,9 +166,9 @@ export function onReplicationStatus(handler) {
             }).catch(() => { });
         });
     }
-    // Desktop: emitted via Rust app_handle.emit()
+    // Desktop: emitted via Rust app_handle.emit() as { replicator, activity }.
     return listen(REPLICATION_STATUS_EVENT, (event) => {
-        handler(event.payload);
+        handler(event.payload.activity, undefined, event.payload.replicator);
     });
 }
 /** Start accepting replication connections from other Couchbase Lite instances. */

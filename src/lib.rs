@@ -54,7 +54,17 @@ pub struct PluginState {
     ///
     /// Declared after coll_listeners so the tokens drop first.
     pub collections: Vec<couchbase_lite::collection::Collection>,
-    pub replicator: Option<Replicator>,
+    /// Every currently-running replicator, keyed by the caller-supplied
+    /// label (`start_replication`'s `label`, defaulting to `"default"`).
+    ///
+    /// A single `Option<Replicator>` was the original shape here, which is
+    /// enough for a single client<->server sync but not for a device
+    /// that keeps a server ("uplink") replicator and a peer-to-peer replicator
+    /// running at once — the whole point of "falls back to peer-to-peer
+    /// while still trying the uplink". A second `start_replication` call used
+    /// to silently overwrite the first replicator's handle, leaving it
+    /// unstoppable and unqueryable while it kept running in the background.
+    pub replicators: std::collections::HashMap<String, Replicator>,
 }
 
 #[cfg(all(not(mobile), feature = "native-cbl"))]
