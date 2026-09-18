@@ -261,6 +261,24 @@ pub async fn start_replication<R: Runtime>(
 
     let channel_names: Vec<String> = channels.unwrap_or_default();
     let make_channels_array = || {
+        // No channels means *no filter*, which is not the same as an empty one.
+        //
+        // MutableArray::new() allocates an empty array; MutableArray::default()
+        // is a null pointer. LiteCore treats the first as "filter on this set"
+        // and the second as "do not filter at all", and the difference decides
+        // whether peer-to-peer replication works:
+        //
+        //   Sync Gateway  wants a real channel list. An empty array is a fatal
+        //                 400 Illegal channel name "" that kills the replicator.
+        //   a peer        supports no filtering whatsoever. An empty array is
+        //                 still a filter, and the listener answers every pull
+        //                 with LiteCore 19 'Filtering not supported'.
+        //
+        // Always allocating meant a peer replication could never succeed, no
+        // matter what the caller passed.
+        if channel_names.is_empty() {
+            return MutableArray::default();
+        }
         let mut arr = MutableArray::new();
         for name in &channel_names {
             arr.append().put_string(name);
