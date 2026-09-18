@@ -46,6 +46,7 @@ pub async fn open_database<R: Runtime>(
     // For each requested collection: ensure it exists and register a change
     // listener so the frontend receives cblite://collection-changed events.
     let mut coll_listeners = vec![];
+    let mut kept_collections = vec![];
     for coll_spec in collections.unwrap_or_default() {
         let (scope_name, coll_name) = if let Some((s, c)) = coll_spec.split_once('.') {
             (s.to_string(), c.to_string())
@@ -59,12 +60,16 @@ pub async fn open_database<R: Runtime>(
             let _ = app_handle.emit(events::COLLECTION_CHANGED, doc_ids);
         }) as CollectionChangeListener);
         coll_listeners.push(listener);
+        // The listener dies with the handle it was registered on, so the handle
+        // has to outlive it. See PluginState::collections.
+        kept_collections.push(coll);
     }
 
     *guard = Some(PluginState {
         db,
         listeners: vec![],
         coll_listeners,
+        collections: kept_collections,
         replicator: None,
     });
     Ok(())

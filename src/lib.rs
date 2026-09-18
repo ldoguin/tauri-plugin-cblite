@@ -43,6 +43,17 @@ pub struct PluginState {
     pub listeners: Vec<ListenerToken>,
     /// Collection change listeners (kept alive to receive callbacks).
     pub coll_listeners: Vec<Listener<CollectionChangeListener>>,
+    /// The collections those listeners were registered on.
+    ///
+    /// Kept alive deliberately. A listener does not outlive the Collection it
+    /// was registered on: drop the handle and the callback simply never fires
+    /// again, with no error anywhere. open_database used to register each
+    /// listener against a Collection that went out of scope at the end of the
+    /// loop, so every listener in this plugin was dead before the command
+    /// returned - documents arrived, nothing was ever told.
+    ///
+    /// Declared after coll_listeners so the tokens drop first.
+    pub collections: Vec<couchbase_lite::collection::Collection>,
     pub replicator: Option<Replicator>,
 }
 
