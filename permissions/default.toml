@@ -44,6 +44,16 @@ description = "Allows listing the indexes on a collection."
 commands.allow = ["list_indexes"]
 
 [[permission]]
+identifier = "allow-enable-vector-search"
+description = "Allows loading the Vector Search extension."
+commands.allow = ["enable_vector_search"]
+
+[[permission]]
+identifier = "allow-create-vector-index"
+description = "Allows creating a vector index on a collection."
+commands.allow = ["create_vector_index"]
+
+[[permission]]
 identifier = "allow-save-blob"
 description = "Allows saving a blob to the database."
 commands.allow = ["save_blob"]
@@ -83,6 +93,8 @@ permissions = [
     "allow-execute-query",
     "allow-create-fts-index",
     "allow-list-indexes",
+    "allow-enable-vector-search",
+    "allow-create-vector-index",
     "allow-save-blob",
     "allow-get-blob-data",
     "allow-write-export-file",

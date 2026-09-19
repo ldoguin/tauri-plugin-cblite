@@ -98,6 +98,10 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                 commands::get_blob_data,
                 commands::write_export_file,
                 #[cfg(feature = "enterprise")]
+                commands::enable_vector_search,
+                #[cfg(feature = "enterprise")]
+                commands::create_vector_index,
+                #[cfg(feature = "enterprise")]
                 peer::start_peer_listener,
                 #[cfg(feature = "enterprise")]
                 peer::stop_peer_listener,

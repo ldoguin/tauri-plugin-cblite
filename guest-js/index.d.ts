@@ -24,6 +24,23 @@ export declare function executeQuery(language: "N1QL" | "JSON", queryStr: string
 export declare function createFtsIndex(collection: string, indexName: string, field: string): Promise<void>;
 export declare function listIndexes(collection: string): Promise<string[]>;
 /**
+ * Loads the Vector Search extension. Enterprise only, and must be called
+ * before `openDatabase` — Couchbase Lite loads it once, globally.
+ * `extensionPath` is the directory containing the platform's real
+ * extension library (e.g. `CouchbaseLiteVectorSearch.so` on Linux),
+ * downloaded separately — see
+ * https://docs.couchbase.com/couchbase-lite/current/c/gs-downloads.html.
+ */
+export declare function enableVectorSearch(extensionPath: string): Promise<void>;
+/**
+ * Create (or idempotently replace) a vector index on a collection field.
+ * `expression` is an N1QL expression evaluating to the vector array per
+ * document (e.g. `"vector"` for a plain top-level field); `dimensions` is
+ * the vector length; `centroids` is recommended as `sqrt(number of
+ * vectors)`, any positive number works for a small dataset.
+ */
+export declare function createVectorIndex(collection: string, indexName: string, expression: string, dimensions: number, centroids: number): Promise<void>;
+/**
  * Register a predictive model for use in PREDICTION() queries.
  */
 export declare function registerPredictiveModel(name: string, options?: {

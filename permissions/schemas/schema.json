@@ -295,10 +295,10 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "Default permission set — allows all plugin commands.\n#### This default permission set includes:\n\n- `allow-start-peer-listener`\n- `allow-stop-peer-listener`\n- `allow-peer-listener-status`\n- `allow-open-database`\n- `allow-close-database`\n- `allow-get-document`\n- `allow-save-document`\n- `allow-start-replication`\n- `allow-stop-replication`\n- `allow-execute-query`\n- `allow-create-fts-index`\n- `allow-list-indexes`\n- `allow-save-blob`\n- `allow-get-blob-data`\n- `allow-write-export-file`\n- `allow-register-listener`\n- `allow-remove-listener`",
+          "description": "Default permission set — allows all plugin commands.\n#### This default permission set includes:\n\n- `allow-start-peer-listener`\n- `allow-stop-peer-listener`\n- `allow-peer-listener-status`\n- `allow-open-database`\n- `allow-close-database`\n- `allow-get-document`\n- `allow-save-document`\n- `allow-start-replication`\n- `allow-stop-replication`\n- `allow-execute-query`\n- `allow-create-fts-index`\n- `allow-list-indexes`\n- `allow-enable-vector-search`\n- `allow-create-vector-index`\n- `allow-save-blob`\n- `allow-get-blob-data`\n- `allow-write-export-file`\n- `allow-register-listener`\n- `allow-remove-listener`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permission set — allows all plugin commands.\n#### This default permission set includes:\n\n- `allow-start-peer-listener`\n- `allow-stop-peer-listener`\n- `allow-peer-listener-status`\n- `allow-open-database`\n- `allow-close-database`\n- `allow-get-document`\n- `allow-save-document`\n- `allow-start-replication`\n- `allow-stop-replication`\n- `allow-execute-query`\n- `allow-create-fts-index`\n- `allow-list-indexes`\n- `allow-save-blob`\n- `allow-get-blob-data`\n- `allow-write-export-file`\n- `allow-register-listener`\n- `allow-remove-listener`"
+          "markdownDescription": "Default permission set — allows all plugin commands.\n#### This default permission set includes:\n\n- `allow-start-peer-listener`\n- `allow-stop-peer-listener`\n- `allow-peer-listener-status`\n- `allow-open-database`\n- `allow-close-database`\n- `allow-get-document`\n- `allow-save-document`\n- `allow-start-replication`\n- `allow-stop-replication`\n- `allow-execute-query`\n- `allow-create-fts-index`\n- `allow-list-indexes`\n- `allow-enable-vector-search`\n- `allow-create-vector-index`\n- `allow-save-blob`\n- `allow-get-blob-data`\n- `allow-write-export-file`\n- `allow-register-listener`\n- `allow-remove-listener`"
         },
         {
           "description": "Allows opening a database.",
@@ -353,6 +353,18 @@
           "type": "string",
           "const": "allow-list-indexes",
           "markdownDescription": "Allows listing the indexes on a collection."
+        },
+        {
+          "description": "Allows loading the Vector Search extension.",
+          "type": "string",
+          "const": "allow-enable-vector-search",
+          "markdownDescription": "Allows loading the Vector Search extension."
+        },
+        {
+          "description": "Allows creating a vector index on a collection.",
+          "type": "string",
+          "const": "allow-create-vector-index",
+          "markdownDescription": "Allows creating a vector index on a collection."
         },
         {
           "description": "Allows saving a blob to the database.",

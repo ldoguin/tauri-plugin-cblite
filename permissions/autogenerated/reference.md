@@ -16,6 +16,8 @@ Default permission set — allows all plugin commands.
 - `allow-execute-query`
 - `allow-create-fts-index`
 - `allow-list-indexes`
+- `allow-enable-vector-search`
+- `allow-create-vector-index`
 - `allow-save-blob`
 - `allow-get-blob-data`
 - `allow-write-export-file`
@@ -144,6 +146,32 @@ Allows creating a full-text search index on a collection.
 <td>
 
 Allows listing the indexes on a collection.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`cblite:allow-enable-vector-search`
+
+</td>
+<td>
+
+Allows loading the Vector Search extension.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`cblite:allow-create-vector-index`
+
+</td>
+<td>
+
+Allows creating a vector index on a collection.
 
 </td>
 </tr>

@@ -137,6 +137,61 @@ pub async fn list_indexes<R: Runtime>(
     Ok(names)
 }
 
+/// Loads the Vector Search extension so vector indexes can be created and
+/// queried. Must be called before `open_database` — Couchbase Lite loads
+/// the extension once, globally, not per-database, and refuses to create
+/// or open a vector index without it. `extension_path` is the directory
+/// containing the platform's extension library (e.g.
+/// `CouchbaseLiteVectorSearch.so` on Linux), downloaded separately from
+/// https://docs.couchbase.com/couchbase-lite/current/c/gs-downloads.html —
+/// it is an Enterprise-only, real native library, not something this crate
+/// vendors or fetches automatically.
+#[cfg(feature = "enterprise")]
+#[tauri::command]
+pub async fn enable_vector_search(extension_path: String) -> Result<(), String> {
+    couchbase_lite::enable_vector_search(&extension_path).map_err(|e| e.to_string())
+}
+
+/// Create (or idempotently replace) a vector index on a collection field.
+///
+/// - `collection`: e.g. `"_default.flow"` or `"flow"`
+/// - `index_name`: arbitrary name, e.g. `"vec_idx"`
+/// - `expression`: N1QL expression evaluating to the vector array per
+///   document, e.g. `"vector"` for a plain top-level field
+/// - `dimensions`: length of the vector, e.g. `8`
+/// - `centroids`: recommended `sqrt(number of vectors)`; any positive
+///   number works for a small demo dataset, just marked "untrained" until
+///   enough vectors accumulate
+///
+/// Not lazy: Couchbase Lite computes the index directly from `expression`
+/// on each document, the same way `create_fts_index` does — no
+/// `IndexUpdater` step, since the app is expected to write pre-computed
+/// vectors as a normal document field rather than raw content CBL would
+/// need to embed itself.
+#[cfg(feature = "enterprise")]
+#[tauri::command]
+pub async fn create_vector_index<R: Runtime>(
+    _app: AppHandle<R>,
+    state: State<'_, PluginStateArc>,
+    collection: String,
+    index_name: String,
+    expression: String,
+    dimensions: u32,
+    centroids: u32,
+) -> Result<(), String> {
+    use couchbase_lite::VectorIndexConfiguration;
+
+    let guard = state.lock().map_err(|e| e.to_string())?;
+    let plugin_state = guard.as_ref().ok_or("Database not open")?;
+
+    let (scope_name, coll_name) = parse_collection(&collection);
+    let coll = open_collection(&plugin_state.db, scope_name, coll_name)?;
+
+    let config = VectorIndexConfiguration::new(&expression, dimensions, centroids);
+    coll.create_vector_index(&index_name, &config)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn close_database<R: Runtime>(
     _app: AppHandle<R>,

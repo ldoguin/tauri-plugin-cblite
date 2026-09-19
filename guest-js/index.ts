@@ -127,6 +127,41 @@ export function listIndexes(collection: string): Promise<string[]> {
 }
 
 /**
+ * Loads the Vector Search extension. Enterprise only, and must be called
+ * before `openDatabase` — Couchbase Lite loads it once, globally.
+ * `extensionPath` is the directory containing the platform's real
+ * extension library (e.g. `CouchbaseLiteVectorSearch.so` on Linux),
+ * downloaded separately — see
+ * https://docs.couchbase.com/couchbase-lite/current/c/gs-downloads.html.
+ */
+export function enableVectorSearch(extensionPath: string): Promise<void> {
+  return invoke("plugin:cblite|enable_vector_search", { extensionPath });
+}
+
+/**
+ * Create (or idempotently replace) a vector index on a collection field.
+ * `expression` is an N1QL expression evaluating to the vector array per
+ * document (e.g. `"vector"` for a plain top-level field); `dimensions` is
+ * the vector length; `centroids` is recommended as `sqrt(number of
+ * vectors)`, any positive number works for a small dataset.
+ */
+export function createVectorIndex(
+  collection: string,
+  indexName: string,
+  expression: string,
+  dimensions: number,
+  centroids: number
+): Promise<void> {
+  return invoke("plugin:cblite|create_vector_index", {
+    collection,
+    indexName,
+    expression,
+    dimensions,
+    centroids,
+  });
+}
+
+/**
  * Register a predictive model for use in PREDICTION() queries.
  */
 export function registerPredictiveModel(
