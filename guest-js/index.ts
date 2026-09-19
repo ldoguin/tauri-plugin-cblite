@@ -259,9 +259,12 @@ export function onReplicationStatus(
     });
   }
   // Desktop: emitted via Rust app_handle.emit() as { replicator, activity }.
-  return listen<{ replicator: string; activity: string }>(REPLICATION_STATUS_EVENT, (event) => {
-    handler(event.payload.activity, undefined, event.payload.replicator);
-  });
+  return listen<{ replicator: string; activity: string; error?: string | null }>(
+    REPLICATION_STATUS_EVENT,
+    (event) => {
+      handler(event.payload.activity, event.payload.error ?? undefined, event.payload.replicator);
+    }
+  );
 }
 
 // ── Peer-to-peer replication ────────────────────────────────────────────────

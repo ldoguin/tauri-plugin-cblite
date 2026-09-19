@@ -534,9 +534,16 @@ pub async fn start_replication<R: Runtime>(
             };
             // An object, not a bare string: with more than one replicator
             // running at once the frontend needs to know which one changed.
+            // `error` was available on `status.error` all along and simply
+            // never read — without it, a fatal handshake failure (wrong
+            // credentials, protocol mismatch, unreachable host) reads
+            // identically to a normal `Stopped` after a deliberate
+            // `stop_replication` call: the frontend sees the activity
+            // change and nothing else.
+            let error = status.error.as_ref().err().map(|e| e.to_string());
             let _ = app_handle.emit(
                 events::REPLICATION_STATUS,
-                serde_json::json!({ "replicator": listener_label, "activity": activity }),
+                serde_json::json!({ "replicator": listener_label, "activity": activity, "error": error }),
             );
         }));
     replicator.start(false);

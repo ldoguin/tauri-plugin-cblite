@@ -195,7 +195,7 @@ export function onReplicationStatus(handler) {
     }
     // Desktop: emitted via Rust app_handle.emit() as { replicator, activity }.
     return listen(REPLICATION_STATUS_EVENT, (event) => {
-        handler(event.payload.activity, undefined, event.payload.replicator);
+        handler(event.payload.activity, event.payload.error ?? undefined, event.payload.replicator);
     });
 }
 /** Start accepting replication connections from other Couchbase Lite instances. */
