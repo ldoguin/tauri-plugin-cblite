@@ -7,17 +7,23 @@
 /// boolean WHERE were not — and a query that CBL rejects fails at runtime, in
 /// the UI, with no build-time warning. Hence a headless test.
 use couchbase_lite::{
-    Database, DatabaseConfiguration, Document, Query, QueryLanguage,
+    Database, DatabaseConfiguration, Document, MutableDict, Query, QueryLanguage,
 };
 use tempfile::TempDir;
 
-fn save(coll: &mut couchbase_lite::collection::Collection, id: &str, price: f64, offline: bool) {
+fn save(
+    coll: &mut couchbase_lite::collection::Collection,
+    id: &str,
+    price: f64,
+    offline: bool,
+    lane: &str,
+) {
     let mut doc = Document::new_with_id(id);
     {
         let mut props = doc.mutable_properties();
         props.at("item").put_string("espresso");
         props.at("price").put_f64(price);
-        props.at("lane").put_string("lane-1");
+        props.at("lane").put_string(lane);
         props.at("capturedOffline").put_bool(offline);
     }
     coll.save_document(&mut doc).expect("save document");
@@ -35,10 +41,10 @@ fn aggregates_and_boolean_filters_work_on_device() {
 
     // 4 sales totalling 20.00; 2 of them captured while the uplink was down,
     // totalling 6.00.
-    save(&mut coll, "s1", 3.00, true);
-    save(&mut coll, "s2", 3.00, true);
-    save(&mut coll, "s3", 7.00, false);
-    save(&mut coll, "s4", 7.00, false);
+    save(&mut coll, "s1", 3.00, true, "lane-1");
+    save(&mut coll, "s2", 3.00, true, "lane-1");
+    save(&mut coll, "s3", 7.00, false, "lane-1");
+    save(&mut coll, "s4", 7.00, false, "lane-1");
 
     // The whole-shift summary: exactly the shape the apps' planSummary() builds.
     let query = Query::new(
@@ -66,4 +72,60 @@ fn aggregates_and_boolean_filters_work_on_device() {
     let row = results.next().expect("expected an offline row");
     assert_eq!(row.get(0).as_i64_or_0(), 2, "COUNT(*) where capturedOffline");
     assert_eq!(row.get(1).as_f64_or_0(), 6.0, "SUM(price) where capturedOffline");
+}
+
+/// A device that peers with another ends up holding the peer's documents too,
+/// so a summary meant to describe *this* device has to narrow by its own id.
+/// That id is typed by a user, which makes string interpolation into the query
+/// the wrong tool — hence a bound parameter, tested here against real CBL
+/// rather than assumed to work alongside aggregates.
+#[test]
+fn a_bound_parameter_narrows_an_aggregate_to_one_device() {
+    let dir = TempDir::new().unwrap();
+    let config = DatabaseConfiguration {
+        directory: dir.path(),
+        encryption_key: None,
+    };
+    let db = Database::open("param_test", Some(config)).expect("open database");
+    let mut coll = db.default_collection_or_error().unwrap();
+
+    // This lane sold 10.00 across 2 sales; the peer's documents, replicated in,
+    // must not be counted.
+    save(&mut coll, "a1", 4.00, false, "lane-1");
+    save(&mut coll, "a2", 6.00, true, "lane-1");
+    save(&mut coll, "b1", 99.00, false, "lane-2");
+
+    let query = Query::new(
+        &db,
+        QueryLanguage::N1QL,
+        "SELECT COUNT(*) AS sales, SUM(price) AS revenue FROM _default WHERE lane = $lane",
+    )
+    .expect("create parameterised query");
+
+    let mut params = MutableDict::new();
+    params.at("lane").put_string("lane-1");
+    query.set_parameters(&params);
+
+    let mut results = query.execute().expect("execute parameterised query");
+    let row = results.next().expect("expected a row");
+    assert_eq!(row.get(0).as_i64_or_0(), 2, "only this lane's sales");
+    assert_eq!(row.get(1).as_f64_or_0(), 10.0, "peer's 99.00 must not be counted");
+
+    // And the same parameter combined with the boolean subset filter, which is
+    // the shape the offline-captured KPI actually uses.
+    let query = Query::new(
+        &db,
+        QueryLanguage::N1QL,
+        "SELECT COUNT(*) AS sales, SUM(price) AS revenue \
+         FROM _default WHERE lane = $lane AND capturedOffline = true",
+    )
+    .expect("create combined query");
+    let mut params = MutableDict::new();
+    params.at("lane").put_string("lane-1");
+    query.set_parameters(&params);
+
+    let mut results = query.execute().expect("execute combined query");
+    let row = results.next().expect("expected a row");
+    assert_eq!(row.get(0).as_i64_or_0(), 1);
+    assert_eq!(row.get(1).as_f64_or_0(), 6.0);
 }
