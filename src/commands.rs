@@ -312,6 +312,12 @@ pub async fn start_replication<R: Runtime>(
     // replication with the same (or no) label stops and replaces the first,
     // exactly as before.
     label: Option<String>,
+    // A server certificate (PEM or DER text) to trust exclusively, e.g. the one a TLS peer
+    // listener returned. Anything else is refused.
+    pinned_certificate: Option<String>,
+    // Accept any self-signed server certificate. Encrypts the link but does NOT authenticate
+    // the server; prefer `pinned_certificate`. Ignored when a certificate is pinned.
+    accept_self_signed: Option<bool>,
 ) -> Result<(), String> {
     let label = label.unwrap_or_else(|| "default".to_string());
     use couchbase_lite::{
@@ -464,14 +470,17 @@ pub async fn start_replication<R: Runtime>(
         authenticator,
         proxy: None,
         headers,
-        pinned_server_certificate: None,
+        pinned_server_certificate: pinned_certificate
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| s.as_bytes().to_vec()),
         trusted_root_certificates: None,
         channels: MutableArray::default(), // GLOBAL channels ARE NOT IMPLEMENTED! DO NOT USE. Only PER-COLLECTION channels work.
         document_ids: MutableArray::default(),
         collections: Some(collections),
         accept_parent_domain_cookies: true,
         #[cfg(feature = "enterprise")]
-        accept_only_self_signed_server_certificate: false,
+        accept_only_self_signed_server_certificate: accept_self_signed.unwrap_or(false),
     };
 
     debug!("Created replicator configuration with endpoint: {}", url);

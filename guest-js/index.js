@@ -48,7 +48,13 @@ channels,
 // replication with the same (or no) label stops and replaces the first,
 // same as before this parameter existed. Pass distinct labels to run
 // more than one replicator concurrently.
-label) {
+label, 
+// Trust only this server certificate (PEM), e.g. the one a TLS peer listener returned in
+// `PeerListenerInfo.certificate`. Any other certificate is refused.
+pinnedCertificate, 
+// Accept any self-signed server certificate. Encrypts the link but does NOT authenticate the
+// server; prefer `pinnedCertificate`. Ignored when a certificate is pinned.
+acceptSelfSigned) {
     const isSession = auth && "sessionId" in auth;
     return invoke("plugin:cblite|start_replication", {
         url,
@@ -63,6 +69,8 @@ label) {
         extraCollections: extraCollections ?? null,
         channels: channels ?? null,
         label: label ?? null,
+        pinnedCertificate: pinnedCertificate ?? null,
+        acceptSelfSigned: acceptSelfSigned ?? null,
     });
 }
 /** `label` defaults to `"default"`, matching `startReplication`. */
@@ -199,11 +207,21 @@ export function onReplicationStatus(handler) {
     });
 }
 /** Start accepting replication connections from other Couchbase Lite instances. */
-export function startPeerListener(collections, port, readOnly) {
+export function startPeerListener(collections, port, readOnly, 
+/**
+ * Opt-in transport security. `tls`: serve `wss://` with a fresh self-signed certificate (returned in
+ * the result). `requireCredentials`: admit only peers that the host application's admission check
+ * accepts (registered from Rust with `set_peer_admission`); dialers pass credentials as the
+ * `username`/`password` of `startReplication`. Check `tls` / `authenticated` in the result.
+ */
+security) {
     return invoke("plugin:cblite|start_peer_listener", {
         collections,
         port: port ?? 0,
         readOnly: readOnly ?? false,
+        tls: security?.tls ?? null,
+        commonName: security?.commonName ?? null,
+        requireCredentials: security?.requireCredentials ?? null,
     });
 }
 export function stopPeerListener() {

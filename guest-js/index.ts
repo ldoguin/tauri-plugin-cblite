@@ -74,7 +74,13 @@ export function startReplication(
   // replication with the same (or no) label stops and replaces the first,
   // same as before this parameter existed. Pass distinct labels to run
   // more than one replicator concurrently.
-  label?: string
+  label?: string,
+  // Trust only this server certificate (PEM), e.g. the one a TLS peer listener returned in
+  // `PeerListenerInfo.certificate`. Any other certificate is refused.
+  pinnedCertificate?: string,
+  // Accept any self-signed server certificate. Encrypts the link but does NOT authenticate the
+  // server; prefer `pinnedCertificate`. Ignored when a certificate is pinned.
+  acceptSelfSigned?: boolean
 ): Promise<void> {
   const isSession = auth && "sessionId" in auth;
   return invoke("plugin:cblite|start_replication", {
@@ -90,6 +96,8 @@ export function startReplication(
     extraCollections: extraCollections ?? null,
     channels: channels ?? null,
     label: label ?? null,
+    pinnedCertificate: pinnedCertificate ?? null,
+    acceptSelfSigned: acceptSelfSigned ?? null,
   });
 }
 
@@ -277,8 +285,14 @@ export function onReplicationStatus(
 export interface PeerListenerInfo {
   /** The port actually bound; asking for 0 lets the OS choose. */
   port: number;
-  /** Every address a peer could dial, as ws:// URLs. */
+  /** Every address a peer could dial, as ws:// (or, with TLS, wss://) URLs. */
   urls: string[];
+  /** Whether the listener serves TLS. Check it when you asked for TLS: an older plugin ignores the option. */
+  tls?: boolean;
+  /** The listener's certificate (PEM) when it serves TLS: give it to peers that should pin it. */
+  certificate?: string | null;
+  /** Whether peers must present credentials the host's admission check accepts. */
+  authenticated?: boolean;
 }
 
 export interface PeerConnectionStatus {
@@ -294,12 +308,22 @@ export interface PeerConnectionStatus {
 export function startPeerListener(
   collections: string[],
   port?: number,
-  readOnly?: boolean
+  readOnly?: boolean,
+  /**
+   * Opt-in transport security. `tls`: serve `wss://` with a fresh self-signed certificate (returned in
+   * the result). `requireCredentials`: admit only peers that the host application's admission check
+   * accepts (registered from Rust with `set_peer_admission`); dialers pass credentials as the
+   * `username`/`password` of `startReplication`. Check `tls` / `authenticated` in the result.
+   */
+  security?: { tls?: boolean; commonName?: string; requireCredentials?: boolean }
 ): Promise<PeerListenerInfo> {
   return invoke("plugin:cblite|start_peer_listener", {
     collections,
     port: port ?? 0,
     readOnly: readOnly ?? false,
+    tls: security?.tls ?? null,
+    commonName: security?.commonName ?? null,
+    requireCredentials: security?.requireCredentials ?? null,
   });
 }
 

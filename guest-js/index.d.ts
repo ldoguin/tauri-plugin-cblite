@@ -13,7 +13,7 @@ export declare function startReplication(url: string, collection: string, direct
 }, fieldEncryption?: {
     password: string;
     salt: string;
-}, extraCollections?: string[], channels?: string[], label?: string): Promise<void>;
+}, extraCollections?: string[], channels?: string[], label?: string, pinnedCertificate?: string, acceptSelfSigned?: boolean): Promise<void>;
 /** `label` defaults to `"default"`, matching `startReplication`. */
 export declare function stopReplication(label?: string): Promise<void>;
 export declare function executeQuery(language: "N1QL" | "JSON", queryStr: string, parameters?: Record<string, unknown>): Promise<unknown[]>;
@@ -78,8 +78,14 @@ export declare function onReplicationStatus(handler: (activity: string, error?: 
 export interface PeerListenerInfo {
     /** The port actually bound; asking for 0 lets the OS choose. */
     port: number;
-    /** Every address a peer could dial, as ws:// URLs. */
+    /** Every address a peer could dial, as ws:// (or, with TLS, wss://) URLs. */
     urls: string[];
+    /** Whether the listener serves TLS. Check it when you asked for TLS: an older plugin ignores the option. */
+    tls?: boolean;
+    /** The listener's certificate (PEM) when it serves TLS: give it to peers that should pin it. */
+    certificate?: string | null;
+    /** Whether peers must present credentials the host's admission check accepts. */
+    authenticated?: boolean;
 }
 export interface PeerConnectionStatus {
     listening: boolean;
@@ -90,7 +96,11 @@ export interface PeerConnectionStatus {
     urls: string[];
 }
 /** Start accepting replication connections from other Couchbase Lite instances. */
-export declare function startPeerListener(collections: string[], port?: number, readOnly?: boolean): Promise<PeerListenerInfo>;
+export declare function startPeerListener(collections: string[], port?: number, readOnly?: boolean, security?: {
+    tls?: boolean;
+    commonName?: string;
+    requireCredentials?: boolean;
+}): Promise<PeerListenerInfo>;
 export declare function stopPeerListener(): Promise<void>;
 export declare function peerListenerStatus(): Promise<PeerConnectionStatus>;
 /**

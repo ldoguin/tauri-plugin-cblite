@@ -321,3 +321,25 @@ Contributions are welcome. Please open issues or pull requests against the [nucb
 ## License
 
 MIT
+
+## Peer-to-peer listener: transport security (opt-in)
+
+`startPeerListener` (Enterprise builds) accepts replication connections directly. By default the listener is **plain and
+unauthenticated**, which is only right on a trusted LAN. Two options change that:
+
+```ts
+const info = await startPeerListener(collections, 0, false, { tls: true, requireCredentials: true });
+// info.tls === true, info.authenticated === true, info.certificate = PEM, info.urls are wss://
+```
+
+* `tls: true` serves `wss://` with a self-signed certificate that is **made fresh on every start** (the binding cannot
+  persist an identity on Linux), returned as `info.certificate`.
+* `requireCredentials: true` lets a peer in only if an admission check accepts the username and password it presents. The
+  check is Rust code the host app registers with `tauri_plugin_cblite::peer::set_peer_admission(&peer_state, Some(check))`;
+  it never crosses into JavaScript. Dialers pass credentials as the `username`/`password` of `startReplication`.
+* On the dialing side `startReplication(..., label, pinnedCertificate, acceptSelfSigned)`: `pinnedCertificate` (PEM) trusts
+  only that certificate; `acceptSelfSigned` accepts any self-signed certificate (encrypted, but the server is **not**
+  authenticated).
+
+**Check the result.** A build of this plugin without these options ignores them, which would be a silent downgrade to
+plain; compare `info.tls` / `info.authenticated` with what you asked for and stop if they differ.
