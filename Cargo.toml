@@ -16,7 +16,7 @@ enterprise = ["native-cbl", "couchbase_lite/enterprise", "dep:tract-onnx", "dep:
 
 [dependencies]
 # Optional: only present on desktop builds (Android uses the Kotlin CBL SDK instead).
-couchbase_lite = { git = "https://github.com/ldoguin/couchbase-lite-rust", optional = true, rev = "6973ec9b8316685b1da1067670c4386484e5d95f", default-features = false }
+couchbase_lite = { git = "https://github.com/ldoguin/couchbase-lite-rust", optional = true, rev = "18c6a3e839839b0f55ec1f4fab768c8b7370d3fd", default-features = false }
 tauri = { version = "2", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
